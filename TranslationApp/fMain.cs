@@ -98,22 +98,36 @@ namespace TranslationApp
             translationToolStripMenuItem.DropDownItems.AddRange(items.ToArray());
         }
 
-        private void LoadNewFolder_Click(object sender, EventArgs e)
+         private void LoadNewFolder_Click(object sender, EventArgs e)
         {
+            var previousProject = Project;
+
             ToolStripMenuItem clickedItem = (ToolStripMenuItem)sender;
             ProjectEntry pe = (ProjectEntry)clickedItem.Tag;
             LoadProjectFolder(pe.shortName, pe.folder);
-            textPreview1.ChangeImage(pe.shortName);
-            UpdateTitle(pe.fullName);
+            
+            // Only update UI if a new project was actually loaded
+            if (Project != null && Project.CurrentFolder != null && Project != previousProject)
+            {
+                textPreview1.ChangeImage(pe.shortName);
+                UpdateTitle(pe.fullName);
+            }
         }
 
         private void LoadLastFolder_Click(object sender, EventArgs e)
         {
+            var previousProject = Project;
+
             ToolStripMenuItem clickedItem = (ToolStripMenuItem)sender;
             ProjectEntry pe = (ProjectEntry)clickedItem.Tag;
             LoadLastFolder(pe.shortName);
-            textPreview1.ChangeImage(pe.shortName);
-            UpdateTitle(pe.fullName);
+            
+            // Only update UI if project was successfully loaded
+            if (Project != null && Project.CurrentFolder != null && Project != previousProject)
+            {
+                textPreview1.ChangeImage(pe.shortName);
+                UpdateTitle(pe.fullName);
+            }
         }
 
         private void openFolderToolStripMenuItem_Click(object sender, EventArgs e)
