@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -706,17 +706,36 @@ namespace TranslationApp
             return "";
         }
 
-        private void LoadProjectFolder(string gameName, string path)
+         private void LoadProjectFolder(string gameName, string path)
         {
             lbEntries.BorderStyle = BorderStyle.FixedSingle;
-            var loadedFolder = TryLoadFolder(Path.Combine(GetFolderPath(), path), gameName.Equals("NDX"));
+            
+            // Get the folder path from user
+            string selectedFolder = GetFolderPath();
+            
+            // Check if user cancelled the folder picker
+            if (string.IsNullOrEmpty(selectedFolder))
+            {
+                // User cancelled, don't proceed
+                return;
+            }
+            
+            var loadedFolder = TryLoadFolder(Path.Combine(selectedFolder, path), gameName.Equals("NDX"));
+            
+            // Check if folder loading failed
+            if (loadedFolder == null)
+            {
+                // Folder loading failed, don't proceed
+                return;
+            }
+            
             gameConfig = config.GamesConfigList.Where(x => x.Game == gameName).FirstOrDefault();
 
             if (gameConfig == null)
             {
-                GameConfig newConfig = new GameConfig();
+                GameConfig newConfig = new GameConfig(gameName);
                 newConfig.FolderPath = loadedFolder;
-                newConfig.LastFolderPath = loadedFolder;
+                newConfig.LastFolderPath = selectedFolder; // Store the parent folder, not the subfolder
                 newConfig.Game = gameName;
                 config.GamesConfigList.Add(newConfig);
                 gameConfig = config.GetGameConfig(gameName);
@@ -724,7 +743,7 @@ namespace TranslationApp
             else
             {
                 gameConfig.FolderPath = loadedFolder;
-                gameConfig.LastFolderPath = loadedFolder;
+                gameConfig.LastFolderPath = selectedFolder; // Store the parent folder, not the subfolder
                 gameConfig.Game = gameName;
             }
 
@@ -733,10 +752,10 @@ namespace TranslationApp
         }
         private void LoadLastFolder(string gameName)
         {
-            var myConfig = config.GetGameConfig(gameName);
-            if (myConfig != null)
+            var gameConfig = config.GetGameConfig(gameName);
+            if (gameConfig != null)
             {
-                TryLoadFolder(config.GetGameConfig(gameName).FolderPath, false);
+                TryLoadFolder(gameConfig.FolderPath, false);
                 gameConfig = myConfig;
                 UpdateOptionsVisibility();
             }
