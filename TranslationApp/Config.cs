@@ -14,10 +14,14 @@ namespace TranslationApp
         private string _lastFolderPath;
         private DateTime _lastTimeLoaded;
 
-        public GameConfig() { }
+        public GameConfig()
+        {
+            _lastTimeLoaded = DateTime.Now;
+        }
         public GameConfig(string _Game)
         {
             _game = _Game;
+            _lastTimeLoaded = DateTime.Now; // Initialize with current time
         }
         public string Game
         {

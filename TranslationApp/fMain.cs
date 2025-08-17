@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -79,6 +79,63 @@ namespace TranslationApp
             config = new Config();
             config.Load();
             PackingAssistant = new PackingProject();
+
+            // Automatically load the last used project on startup
+            AutoLoadLastProject();
+        }
+
+        private void AutoLoadLastProject()
+        {
+            try
+            {
+                // Check if we have any saved game configurations
+                if (config?.GamesConfigList != null && config.GamesConfigList.Count > 0)
+                {
+                    // Find the most recently used project by timestamp
+                    var lastUsedProject = config.GamesConfigList
+                        .Where(g => !string.IsNullOrEmpty(g.FolderPath) && Directory.Exists(g.FolderPath))
+                        .OrderByDescending(g => g.LastTimeLoaded) // Order by most recently accessed
+                        .FirstOrDefault();
+
+                    if (lastUsedProject != null)
+                    {
+                        // Find the corresponding ProjectEntry
+                        ProjectEntry? projectEntry = null;
+                        foreach (var project in Projects)
+                        {
+                            if (project.shortName == lastUsedProject.Game)
+                            {
+                                projectEntry = project;
+                                break;
+                            }
+                        }
+                        
+                        if (projectEntry.HasValue)
+                        {
+                            // Load the last used project
+                            LoadLastFolder(projectEntry.Value.shortName);
+                            
+                            // Update UI if project was successfully loaded
+                            if (Project != null && Project.CurrentFolder != null)
+                            {
+                                textPreview1.ChangeImage(projectEntry.Value.shortName);
+                                UpdateTitle(projectEntry.Value.fullName);
+
+                                // add listener to shown event
+                                this.Shown += (s, e) => {
+                                    MessageBox.Show($"Project: \n{projectEntry.Value.fullName}\n\nFolder: \n{lastUsedProject.FolderPath}", "Auto-loaded" );
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the error but don't crash the application
+                System.Diagnostics.Debug.WriteLine($"Auto-load error: {ex.Message}");
+                // Continue with normal startup - user can manually load projects
+            }
         }
 
         private void PopulateProjectTypes()
@@ -737,6 +794,7 @@ namespace TranslationApp
                 newConfig.FolderPath = loadedFolder;
                 newConfig.LastFolderPath = selectedFolder; // Store the parent folder, not the subfolder
                 newConfig.Game = gameName;
+                newConfig.LastTimeLoaded = DateTime.Now; // Track when this project was accessed
                 config.GamesConfigList.Add(newConfig);
                 gameConfig = config.GetGameConfig(gameName);
             }
@@ -745,6 +803,7 @@ namespace TranslationApp
                 gameConfig.FolderPath = loadedFolder;
                 gameConfig.LastFolderPath = selectedFolder; // Store the parent folder, not the subfolder
                 gameConfig.Game = gameName;
+                gameConfig.LastTimeLoaded = DateTime.Now; // Update access timestamp
             }
 
             config.Save();
@@ -756,8 +815,10 @@ namespace TranslationApp
             if (gameConfig != null)
             {
                 TryLoadFolder(gameConfig.FolderPath, false);
-                gameConfig = myConfig;
+                gameConfig.LastTimeLoaded = DateTime.Now; // Update access timestamp
+                config.Save(); // Save the updated timestamp
                 UpdateOptionsVisibility();
+                
             }
             else
                 MessageBox.Show("The game you are trying to load is not inside the configuration file,\nplease load a new folder.");
