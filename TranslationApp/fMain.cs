@@ -80,6 +80,9 @@ namespace TranslationApp
             config.Load();
             PackingAssistant = new PackingProject();
 
+            // Set initial visibility state
+            UpdateOptionsVisibility();
+
             // Automatically load the last used project on startup
             AutoLoadLastProject();
         }
@@ -765,6 +768,7 @@ namespace TranslationApp
 
          private void LoadProjectFolder(string gameName, string path)
         {
+            this.gameName = gameName; // Assign to class field
             lbEntries.BorderStyle = BorderStyle.FixedSingle;
             
             // Get the folder path from user
@@ -811,6 +815,7 @@ namespace TranslationApp
         }
         private void LoadLastFolder(string gameName)
         {
+            this.gameName = gameName; // Assign to class field
             var gameConfig = config.GetGameConfig(gameName);
             if (gameConfig != null)
             {
@@ -1002,6 +1007,10 @@ namespace TranslationApp
         {
             bool TORValid = config.IsPackingVisibility("TOR");
             tsTORPacking.Enabled = tsTORMakeIso.Enabled = tsTORExtract.Enabled = TORValid;
+            
+            // Show RM2 menu only when RM2 project is loaded
+            bool RM2Valid = gameName == "RM2";
+            tsRM2.Visible = RM2Valid;
         }
 
         private void UpdateStatusData()
@@ -1813,8 +1822,6 @@ namespace TranslationApp
             {
                 if (cbDone.Checked && cbDone.Checked && cbProblematic.Checked && cbEditing.Checked && cbToDo.Checked && cbProof.Checked)
                 {
-
-
                     EntryFound eleSelected = ListSearch[lbSearch.SelectedIndex];
                     cbFileType.Text = eleSelected.Folder;
                     cbFileList.SelectedIndex = eleSelected.FileId;
@@ -1828,16 +1835,11 @@ namespace TranslationApp
                     }
                     else
                     {
-
-
                         lbEntries.ClearSelected();
                         cbSections.Text = "All strings";
                         tcType.SelectedIndex = 0;
                         lbEntries.SelectedIndex = CurrentTextList.FindIndex(x => x.Id == eleSelected.Id);
-
                     }
-
-
                 }
             }
         }
@@ -1874,6 +1876,28 @@ namespace TranslationApp
 
             if (t)
                 tbWrap.Text = textPreview1.DoLineBreak(tbEnglishText.Text, Convert.ToInt32(tbMax.Text));
+        }
+
+        private void cbRM2Options_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (cbRM2Options.SelectedItem != null && cbRM2Options.SelectedItem.ToString() == "Settings")
+            {
+                // TODO: Implement RM2 Settings dialog/form
+                MessageBox.Show("RM2 Settings functionality will be implemented here.", "RM2 Settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void tsRM2_Click(object sender, EventArgs e)
+        {
+            // TODO: Implement RM2 menu functionality
+            MessageBox.Show("RM2 menu clicked. Add your RM2-specific functionality here.", "RM2", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void tsRM2Settings_Click(object sender, EventArgs e)
+        {
+            // Open RM2 Settings window
+            fRM2Settings settingsForm = new fRM2Settings(config);
+            settingsForm.ShowDialog();
         }
     }
 
