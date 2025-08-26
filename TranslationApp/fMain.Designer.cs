@@ -56,6 +56,8 @@ namespace TranslationApp
             this.searchJapaneseToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tsRM2 = new System.Windows.Forms.ToolStripMenuItem();
             this.tsRM2Settings = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsRM2ApplyTranslations = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsRM2ReplaceAllFiles = new System.Windows.Forms.ToolStripMenuItem();
             this.tbJapaneseText = new System.Windows.Forms.TextBox();
             this.tbNoteText = new System.Windows.Forms.TextBox();
             this.lblJapanese = new System.Windows.Forms.Label();
@@ -339,7 +341,9 @@ namespace TranslationApp
             // tsRM2
             // 
             this.tsRM2.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsRM2Settings});
+            this.tsRM2Settings,
+            this.tsRM2ApplyTranslations,
+            this.tsRM2ReplaceAllFiles});
             this.tsRM2.Name = "tsRM2";
             this.tsRM2.Size = new System.Drawing.Size(41, 22);
             this.tsRM2.Text = "RM2";
@@ -351,6 +355,20 @@ namespace TranslationApp
             this.tsRM2Settings.Size = new System.Drawing.Size(104, 22);
             this.tsRM2Settings.Text = "Settings";
             this.tsRM2Settings.Click += new System.EventHandler(this.tsRM2Settings_Click);
+            // 
+            // tsRM2ApplyTranslations
+            //
+            this.tsRM2ApplyTranslations.Name = "tsRM2ApplyTranslations";
+            this.tsRM2ApplyTranslations.Size = new System.Drawing.Size(180, 22);
+            this.tsRM2ApplyTranslations.Text = "Apply Translations to files";
+            this.tsRM2ApplyTranslations.Click += new System.EventHandler(this.tsRM2ApplyTranslations_Click);
+            // 
+            // tsRM2ReplaceAllFiles
+            // 
+            this.tsRM2ReplaceAllFiles.Name = "tsRM2ReplaceAllFiles";
+            this.tsRM2ReplaceAllFiles.Size = new System.Drawing.Size(180, 22);
+            this.tsRM2ReplaceAllFiles.Text = "Update ISO with translated files";
+            this.tsRM2ReplaceAllFiles.Click += new System.EventHandler(this.tsRM2ReplaceAllFiles_Click);
             // 
             // hexToJapaneseToolStripMenuItem
             // 

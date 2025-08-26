@@ -14,6 +14,8 @@ namespace TranslationApp
         private string _lastFolderPath;
         private DateTime _lastTimeLoaded;
         private bool _showAutoLoadMessage;
+        private string _projectRootPath;
+        private string _pythonPath;
 
         public GameConfig()
         {
@@ -55,6 +57,29 @@ namespace TranslationApp
         {
             get => _showAutoLoadMessage;
             set => _showAutoLoadMessage = value;
+        }
+        public string ProjectRootPath
+        {
+            get
+            {
+                // If project root path is not set, derive it from folder path
+                if (string.IsNullOrEmpty(_projectRootPath) && !string.IsNullOrEmpty(_folderPath))
+                {
+                    // Go up one level from 2_translated to get to project root
+                    var folderPath = new DirectoryInfo(_folderPath);
+                    if (folderPath.Name == "2_translated" && folderPath.Parent != null)
+                    {
+                        _projectRootPath = folderPath.Parent.FullName;
+                    }
+                }
+                return _projectRootPath;
+            }
+            set => _projectRootPath = value;
+        }
+        public string PythonPath
+        {
+            get => _pythonPath;
+            set => _pythonPath = value;
         }
 
     }

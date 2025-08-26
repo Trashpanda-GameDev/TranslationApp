@@ -29,6 +29,10 @@ namespace TranslationApp
         private static string windowName;
         FormWindowState LastWindowState = FormWindowState.Minimized;
 
+        // RM2 Menu Items
+        private System.Windows.Forms.ToolStripMenuItem tsRM2ApplyTranslations;
+        private System.Windows.Forms.ToolStripMenuItem tsRM2ReplaceAllFiles;
+
         private readonly string MULTIPLE_STATUS = "<Multiple Status>";
         private readonly string MULTIPLE_SELECT = "<Multiple Entries Selected>";
 
@@ -1954,6 +1958,83 @@ namespace TranslationApp
             // Open RM2 Settings window
             fRM2Settings settingsForm = new fRM2Settings(config);
             settingsForm.ShowDialog();
+        }
+
+        private void tsRM2ApplyTranslations_Click(object sender, EventArgs e)
+        {
+            ExecuteRM2Script("rm2_apply.py", "Apply RM2 Translations");
+        }
+
+        private void tsRM2ReplaceAllFiles_Click(object sender, EventArgs e)
+        {
+            ExecuteRM2Script("replace-all.py", "Replace All Files");
+        }
+
+        private void ExecuteRM2Script(string scriptName, string operationName)
+        {
+            try
+            {
+                // Get the RM2 project folder path
+                var gameConfig = config.GetGameConfig("RM2");
+                if (gameConfig == null || string.IsNullOrEmpty(gameConfig.FolderPath))
+                {
+                    MessageBox.Show("Please configure the RM2 project folder path in RM2 → Settings first.", 
+                        "RM2 Project Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Get the ISO path
+                if (string.IsNullOrEmpty(gameConfig.IsoPath))
+                {
+                    MessageBox.Show("Please configure the RM2 ISO path in RM2 → Settings first.", 
+                        "RM2 ISO Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Construct the script path using project root
+                string scriptPath = Path.Combine(gameConfig.ProjectRootPath, "tools", scriptName);
+                if (!File.Exists(scriptPath))
+                {
+                    MessageBox.Show($"Script not found: {scriptPath}\n\nPlease ensure the RM2 project root folder contains the tools directory with {scriptName}", 
+                        "Script Not Found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                // Check if Python is available (try RM2-specific path first, then global)
+                string pythonPath = gameConfig.PythonPath;
+                if (string.IsNullOrEmpty(pythonPath) || !File.Exists(pythonPath))
+                {
+                    pythonPath = config.PythonLocation;
+                    if (string.IsNullOrEmpty(pythonPath) || !File.Exists(pythonPath))
+                    {
+                        MessageBox.Show("Python location not configured or Python executable not found.\n\nPlease configure Python in RM2 → Settings or in the main application settings.", 
+                            "Python Not Configured", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+
+                // Show confirmation dialog
+                var result = MessageBox.Show(
+                    $"This will execute {scriptName} to {operationName.ToLower()}.\n\n" +
+                    $"Script: {scriptPath}\n" +
+                    $"ISO: {gameConfig.IsoPath}\n\n" +
+                    "Do you want to continue?",
+                    $"Confirm {operationName}", 
+                    MessageBoxButtons.YesNo, 
+                    MessageBoxIcon.Question);
+
+                if (result == DialogResult.Yes)
+                {
+                    // Open the progress form to show real-time output
+                    var progressForm = new fRM2Progress(scriptPath, operationName, config);
+                    progressForm.ShowDialog();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error executing {scriptName}: {ex.Message}", 
+                    "Script Execution Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 
