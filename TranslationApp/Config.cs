@@ -13,15 +13,18 @@ namespace TranslationApp
         private string _isoPath;
         private string _lastFolderPath;
         private DateTime _lastTimeLoaded;
+        private bool _showAutoLoadMessage;
 
         public GameConfig()
         {
             _lastTimeLoaded = DateTime.Now;
+            _showAutoLoadMessage = true; // Default to showing auto-load message
         }
         public GameConfig(string _Game)
         {
             _game = _Game;
             _lastTimeLoaded = DateTime.Now; // Initialize with current time
+            _showAutoLoadMessage = true; // Default to showing auto-load message
         }
         public string Game
         {
@@ -47,6 +50,11 @@ namespace TranslationApp
         {
             get => _lastTimeLoaded;
             set => _lastTimeLoaded = value;
+        }
+        public bool ShowAutoLoadMessage
+        {
+            get => _showAutoLoadMessage;
+            set => _showAutoLoadMessage = value;
         }
 
     }

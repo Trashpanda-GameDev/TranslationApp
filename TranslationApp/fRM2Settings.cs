@@ -42,11 +42,15 @@ namespace TranslationApp
                 {
                     txtIsoPath.Text = "";
                 }
+
+                // Set the auto-load message checkbox
+                chkShowAutoLoadMessage.Checked = gameConfig.ShowAutoLoadMessage;
             }
             else
             {
                 txtFolderPath.Text = "Not set";
                 txtIsoPath.Text = "";
+                chkShowAutoLoadMessage.Checked = true; // Default to showing the message
             }
         }
 
@@ -96,6 +100,7 @@ namespace TranslationApp
             }
 
             gameConfig.IsoPath = isoPath;
+            gameConfig.ShowAutoLoadMessage = chkShowAutoLoadMessage.Checked;
             config.Save();
 
             MessageBox.Show("RM2 Settings saved successfully!", "Settings Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);

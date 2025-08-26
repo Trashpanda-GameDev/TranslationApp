@@ -126,7 +126,7 @@ namespace TranslationApp
 
                                 // add listener to shown event
                                 this.Shown += (s, e) => {
-                                    MessageBox.Show($"Project: \n{projectEntry.Value.fullName}\n\nFolder: \n{lastUsedProject.FolderPath}", "Auto-loaded" );
+                                    ShowAutoLoadDialog(projectEntry.Value.fullName, lastUsedProject.FolderPath, lastUsedProject);
                                 };
                             }
                         }
@@ -138,6 +138,62 @@ namespace TranslationApp
                 // Log the error but don't crash the application
                 System.Diagnostics.Debug.WriteLine($"Auto-load error: {ex.Message}");
                 // Continue with normal startup - user can manually load projects
+            }
+        }
+
+        private void ShowAutoLoadDialog(string projectName, string folderPath, GameConfig gameConfig)
+        {
+            // Check if user has chosen not to show this message
+            if (!gameConfig.ShowAutoLoadMessage)
+            {
+                return;
+            }
+
+            // Create custom dialog with checkbox
+            using (var form = new Form())
+            {
+                form.Text = "Auto-loaded";
+                form.Size = new System.Drawing.Size(400, 200);
+                form.StartPosition = FormStartPosition.CenterParent;
+                form.FormBorderStyle = FormBorderStyle.FixedDialog;
+                form.MaximizeBox = false;
+                form.MinimizeBox = false;
+
+                var label = new Label
+                {
+                    Text = $"Project: \n{projectName}\n\nFolder: \n{folderPath}",
+                    Location = new System.Drawing.Point(20, 20),
+                    Size = new System.Drawing.Size(350, 80),
+                    AutoSize = false
+                };
+
+                var checkBox = new CheckBox
+                {
+                    Text = "Don't show this message again",
+                    Location = new System.Drawing.Point(20, 110),
+                    Size = new System.Drawing.Size(200, 20)
+                };
+
+                var button = new Button
+                {
+                    Text = "OK",
+                    Location = new System.Drawing.Point(300, 130),
+                    Size = new System.Drawing.Size(75, 23),
+                    DialogResult = DialogResult.OK
+                };
+
+                form.Controls.Add(label);
+                form.Controls.Add(checkBox);
+                form.Controls.Add(button);
+
+                form.ShowDialog();
+
+                // Save the user's preference
+                if (checkBox.Checked)
+                {
+                    gameConfig.ShowAutoLoadMessage = false;
+                    config.Save();
+                }
             }
         }
 

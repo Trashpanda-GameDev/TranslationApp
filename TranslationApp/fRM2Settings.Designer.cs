@@ -34,6 +34,7 @@ namespace TranslationApp
             this.lblIsoPath = new System.Windows.Forms.Label();
             this.txtIsoPath = new System.Windows.Forms.TextBox();
             this.btnBrowseIso = new System.Windows.Forms.Button();
+            this.chkShowAutoLoadMessage = new System.Windows.Forms.CheckBox();
             this.btnSave = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
             this.SuspendLayout();
@@ -94,22 +95,32 @@ namespace TranslationApp
             this.btnBrowseIso.UseVisualStyleBackColor = true;
             this.btnBrowseIso.Click += new System.EventHandler(this.btnBrowseIso_Click);
             // 
+            // chkShowAutoLoadMessage
+            // 
+            this.chkShowAutoLoadMessage.AutoSize = true;
+            this.chkShowAutoLoadMessage.Location = new System.Drawing.Point(88, 90);
+            this.chkShowAutoLoadMessage.Name = "chkShowAutoLoadMessage";
+            this.chkShowAutoLoadMessage.Size = new System.Drawing.Size(200, 17);
+            this.chkShowAutoLoadMessage.TabIndex = 6;
+            this.chkShowAutoLoadMessage.Text = "Show auto-load message on startup";
+            this.chkShowAutoLoadMessage.UseVisualStyleBackColor = true;
+            // 
             // btnSave
             // 
-            this.btnSave.Location = new System.Drawing.Point(350, 100);
+            this.btnSave.Location = new System.Drawing.Point(350, 125);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(75, 23);
-            this.btnSave.TabIndex = 6;
+            this.btnSave.TabIndex = 7;
             this.btnSave.Text = "Save";
             this.btnSave.UseVisualStyleBackColor = true;
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
             // 
             // btnCancel
             // 
-            this.btnCancel.Location = new System.Drawing.Point(432, 100);
+            this.btnCancel.Location = new System.Drawing.Point(432, 125);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(75, 23);
-            this.btnCancel.TabIndex = 7;
+            this.btnCancel.TabIndex = 8;
             this.btnCancel.Text = "Cancel";
             this.btnCancel.UseVisualStyleBackColor = true;
             this.btnCancel.Click += new System.EventHandler(this.btnCancel_Click);
@@ -118,9 +129,10 @@ namespace TranslationApp
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(519, 135);
+            this.ClientSize = new System.Drawing.Size(519, 160);
             this.Controls.Add(this.btnCancel);
             this.Controls.Add(this.btnSave);
+            this.Controls.Add(this.chkShowAutoLoadMessage);
             this.Controls.Add(this.btnBrowseIso);
             this.Controls.Add(this.txtIsoPath);
             this.Controls.Add(this.lblIsoPath);
@@ -145,6 +157,7 @@ namespace TranslationApp
         private System.Windows.Forms.Label lblIsoPath;
         private System.Windows.Forms.TextBox txtIsoPath;
         private System.Windows.Forms.Button btnBrowseIso;
+        private System.Windows.Forms.CheckBox chkShowAutoLoadMessage;
         private System.Windows.Forms.Button btnSave;
         private System.Windows.Forms.Button btnCancel;
     }
