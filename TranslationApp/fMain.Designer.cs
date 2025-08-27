@@ -58,6 +58,7 @@ namespace TranslationApp
             this.tsRM2Settings = new System.Windows.Forms.ToolStripMenuItem();
             this.tsRM2ApplyTranslations = new System.Windows.Forms.ToolStripMenuItem();
             this.tsRM2ReplaceAllFiles = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsRM2ForceFreshISO = new System.Windows.Forms.ToolStripMenuItem();
             this.tbJapaneseText = new System.Windows.Forms.TextBox();
             this.tbNoteText = new System.Windows.Forms.TextBox();
             this.lblJapanese = new System.Windows.Forms.Label();
@@ -343,7 +344,8 @@ namespace TranslationApp
             this.tsRM2.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsRM2Settings,
             this.tsRM2ApplyTranslations,
-            this.tsRM2ReplaceAllFiles});
+            this.tsRM2ReplaceAllFiles,
+            this.tsRM2ForceFreshISO});
             this.tsRM2.Name = "tsRM2";
             this.tsRM2.Size = new System.Drawing.Size(41, 22);
             this.tsRM2.Text = "RM2";
@@ -369,6 +371,13 @@ namespace TranslationApp
             this.tsRM2ReplaceAllFiles.Size = new System.Drawing.Size(180, 22);
             this.tsRM2ReplaceAllFiles.Text = "Update ISO with translated files";
             this.tsRM2ReplaceAllFiles.Click += new System.EventHandler(this.tsRM2ReplaceAllFiles_Click);
+            // 
+            // tsRM2ForceFreshISO
+            // 
+            this.tsRM2ForceFreshISO.Name = "tsRM2ForceFreshISO";
+            this.tsRM2ForceFreshISO.Size = new System.Drawing.Size(180, 22);
+            this.tsRM2ForceFreshISO.Text = "Force Fresh ISO Copy";
+            this.tsRM2ForceFreshISO.Click += new System.EventHandler(this.tsRM2ForceFreshISO_Click);
             // 
             // hexToJapaneseToolStripMenuItem
             // 
@@ -1495,6 +1504,7 @@ namespace TranslationApp
         private System.Windows.Forms.ToolStripMenuItem searchJapaneseToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem tsRM2;
         private System.Windows.Forms.ToolStripMenuItem tsRM2Settings;
+        private System.Windows.Forms.ToolStripMenuItem tsRM2ForceFreshISO;
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.CheckBox cbProof;
         private System.Windows.Forms.CheckBox cbToDo;

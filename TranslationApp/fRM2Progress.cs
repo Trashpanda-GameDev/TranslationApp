@@ -13,6 +13,12 @@ namespace TranslationApp
         private Config config;
         private bool isCompleted = false;
         private System.Windows.Forms.Timer statusTimer;
+        
+        // ISO Copy specific fields
+        private bool isISOCopy = false;
+        private string sourceISOPath;
+        private string targetISOPath;
+        private long totalFileSize;
 
         public fRM2Progress(string scriptPath, string operationName, Config config)
         {
@@ -27,6 +33,22 @@ namespace TranslationApp
             
             // Start the process after form is shown
             this.Load += (sender, e) => StartProcess();
+        }
+        
+        // Constructor for ISO copy operations
+        public fRM2Progress(string operationName, string statusText, Config config, bool isISOCopy)
+        {
+            InitializeComponent();
+            this.operationName = operationName;
+            this.config = config;
+            this.Text = $"RM2 {operationName} - Progress";
+            this.isISOCopy = isISOCopy;
+            
+            // Initialize the form
+            InitializeForm();
+            
+            // Set initial status for ISO copy
+            UpdateStatus(statusText);
         }
 
         private void InitializeForm()
@@ -44,6 +66,23 @@ namespace TranslationApp
             statusTimer = new System.Windows.Forms.Timer();
             statusTimer.Interval = 1000; // Check every second
             statusTimer.Tick += StatusTimer_Tick;
+        }
+        
+        public void ShowCopyProgress(string sourcePath, string targetPath, long fileSize)
+        {
+            this.sourceISOPath = sourcePath;
+            this.targetISOPath = targetPath;
+            this.totalFileSize = fileSize;
+            
+            // Configure form for ISO copy operation
+            this.progressBar.Visible = true;
+            this.progressBar.Minimum = 0;
+            this.progressBar.Maximum = 100;
+            this.progressBar.Value = 0;
+            this.txtOutput.Visible = false;
+            
+            // Start the copy operation
+            this.Load += (sender, e) => StartISOCopy();
         }
 
         private void StatusTimer_Tick(object sender, EventArgs e)
@@ -255,9 +294,134 @@ namespace TranslationApp
             }
         }
 
+        private void StartISOCopy()
+        {
+            try
+            {
+                UpdateStatus("Starting ISO copy operation...");
+                
+                // Ensure target directory exists
+                string targetDir = Path.GetDirectoryName(targetISOPath);
+                if (!Directory.Exists(targetDir))
+                {
+                    Directory.CreateDirectory(targetDir);
+                }
+                
+                // Start the copy operation in a background thread
+                System.Threading.Thread copyThread = new System.Threading.Thread(() =>
+                {
+                    try
+                    {
+                        // Use optimized copy with larger buffer and less frequent UI updates
+                        CopyFileOptimized(sourceISOPath, targetISOPath);
+                        
+                        // Copy completed successfully
+                        this.Invoke((MethodInvoker)delegate
+                        {
+                            UpdateStatus("ISO copy completed successfully!");
+                            btnClose.Text = "Close";
+                            btnClose.Enabled = true;
+                            isCompleted = true;
+                            
+                            // Auto-close the form after a short delay
+                            System.Threading.Thread.Sleep(1000); // Wait 1 second
+                            this.Close();
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        this.Invoke((MethodInvoker)delegate
+                        {
+                            UpdateStatus($"Error during copy: {ex.Message}");
+                            btnClose.Text = "Close";
+                            btnClose.Enabled = true;
+                            isCompleted = true;
+                        });
+                    }
+                });
+                
+                copyThread.Start();
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus($"Error starting ISO copy: {ex.Message}");
+                btnClose.Text = "Close";
+                btnClose.Enabled = true;
+                isCompleted = true;
+            }
+        }
+        
+        private void CopyFileOptimized(string sourcePath, string targetPath)
+        {
+            // Use a much larger buffer for better performance
+            const int bufferSize = 1024 * 1024; // 1MB buffer (much faster than 8KB)
+            byte[] buffer = new byte[bufferSize];
+            
+            using (FileStream sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (FileStream targetStream = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                long totalBytesRead = 0;
+                int bytesRead;
+                int updateCounter = 0;
+                const int updateFrequency = 50; // Update UI every 50 reads (less frequent updates = better performance)
+                
+                while ((bytesRead = sourceStream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    targetStream.Write(buffer, 0, bytesRead);
+                    totalBytesRead += bytesRead;
+                    updateCounter++;
+                    
+                    // Update progress less frequently to improve performance
+                    if (updateCounter >= updateFrequency)
+                    {
+                        this.Invoke((MethodInvoker)delegate
+                        {
+                            double progressPercent = (double)totalBytesRead / totalFileSize * 100;
+                            UpdateStatus($"Copying ISO... {progressPercent:F1}% ({FormatFileSize(totalBytesRead)} / {FormatFileSize(totalFileSize)})");
+                            
+                            // Update progress bar
+                            if (progressBar != null)
+                            {
+                                progressBar.Value = (int)progressPercent;
+                            }
+                        });
+                        updateCounter = 0;
+                    }
+                }
+                
+                // Final progress update
+                this.Invoke((MethodInvoker)delegate
+                {
+                    UpdateStatus($"Copying ISO... 100.0% ({FormatFileSize(totalFileSize)} / {FormatFileSize(totalFileSize)})");
+                    if (progressBar != null)
+                    {
+                        progressBar.Value = 100;
+                    }
+                });
+            }
+        }
+        
+        private string FormatFileSize(long bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB" };
+            double len = bytes;
+            int order = 0;
+            while (len >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                len = len / 1024;
+            }
+            return $"{len:0.##} {sizes[order]}";
+        }
+        
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            if (process != null && !process.HasExited)
+            if (isISOCopy)
+            {
+                // For ISO copy, just close without confirmation
+                // Streams are automatically disposed by using statements
+            }
+            else if (process != null && !process.HasExited)
             {
                 var result = MessageBox.Show("The process is still running. Do you want to terminate it?", 
                     "Process Running", MessageBoxButtons.YesNo, MessageBoxIcon.Question);

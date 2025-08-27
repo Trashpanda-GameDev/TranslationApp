@@ -1967,10 +1967,251 @@ namespace TranslationApp
 
         private void tsRM2ReplaceAllFiles_Click(object sender, EventArgs e)
         {
-            ExecuteRM2Script("replace-all.py", "Replace All Files");
+            // First, show the better confirmation dialog (similar to ExecuteRM2Script)
+            var gameConfig = config.GetGameConfig("RM2");
+            if (gameConfig == null)
+            {
+                MessageBox.Show("Please configure the RM2 project folder path in RM2 → Settings first.", 
+                    "RM2 Project Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string scriptPath = Path.Combine(gameConfig.ProjectRootPath, "tools", "replace-all.py");
+            var result = MessageBox.Show(
+                $"This will execute replace-all.py to replace all files.\n\n" +
+                $"Script: {scriptPath}\n" +
+                $"ISO: {gameConfig.IsoPath}\n\n" +
+                "Do you want to continue?",
+                "Confirm Replace All Files",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result != DialogResult.Yes)
+            {
+                return; // User cancelled
+            }
+
+            // Then, automatically ensure the RM2_translated.iso exists in the build folder
+            if (!EnsureRM2TranslatedISOExists())
+            {
+                return; // Stop if we couldn't create the ISO
+            }
+            
+            // Finally, execute the replace-all.py script (skip confirmation since we already confirmed)
+            ExecuteRM2Script("replace-all.py", "Replace All Files", true);
+        }
+        
+        private void tsRM2ForceFreshISO_Click(object sender, EventArgs e)
+        {
+            // Always create a fresh copy of the ISO
+            if (!ForceFreshISOCopy())
+            {
+                return; // Stop if we couldn't create the ISO
+            }
+            
+            MessageBox.Show(
+                "Fresh ISO copy created successfully!\n\n" +
+                "The RM2_translated.iso has been replaced with a fresh copy of the original ISO.",
+                "Fresh ISO Copy Created",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
 
-        private void ExecuteRM2Script(string scriptName, string operationName)
+        private bool EnsureRM2TranslatedISOExists()
+        {
+            try
+            {
+                // Get the RM2 project configuration
+                var gameConfig = config.GetGameConfig("RM2");
+                if (gameConfig == null || string.IsNullOrEmpty(gameConfig.FolderPath))
+                {
+                    MessageBox.Show("Please configure the RM2 project folder path in RM2 → Settings first.", 
+                        "RM2 Project Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                // Get the ISO path
+                if (string.IsNullOrEmpty(gameConfig.IsoPath))
+                {
+                    MessageBox.Show("Please configure the RM2 ISO path in RM2 → Settings first.", 
+                        "RM2 ISO Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                // Check if original ISO exists
+                if (!File.Exists(gameConfig.IsoPath))
+                {
+                    MessageBox.Show($"Original ISO file not found: {gameConfig.IsoPath}\n\nPlease check the ISO path in RM2 → Settings.", 
+                        "Original ISO Not Found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
+                }
+
+                // Construct the build folder path and target ISO path
+                string buildFolderPath = Path.Combine(gameConfig.ProjectRootPath, "build");
+                string targetISOPath = Path.Combine(buildFolderPath, "RM2_translated.iso");
+
+                // Check if the target ISO already exists
+                if (File.Exists(targetISOPath))
+                {
+                    // ISO already exists, we can proceed without copying
+                    return true;
+                }
+
+                // Ensure build folder exists
+                if (!Directory.Exists(buildFolderPath))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(buildFolderPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to create build folder: {ex.Message}", 
+                            "Create Folder Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return false;
+                    }
+                }
+
+                // Copy the original ISO to the build folder with progress indication
+                try
+                {
+                    // Get file size for progress calculation
+                    long fileSize = new FileInfo(gameConfig.IsoPath).Length;
+                    
+                    // Show progress dialog
+                    var progressForm = new fRM2Progress("ISO Copy", "Copying ISO file...", config, true);
+                    progressForm.ShowCopyProgress(gameConfig.IsoPath, targetISOPath, fileSize);
+                    progressForm.ShowDialog();
+                    
+                    // Check if copy was successful
+                    if (File.Exists(targetISOPath))
+                    {
+                        return true; // Successfully created, proceed silently
+                    }
+                    else
+                    {
+                        MessageBox.Show("ISO copy operation was cancelled or failed.", 
+                            "Copy Cancelled", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to copy ISO file: {ex.Message}", 
+                        "Copy Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error ensuring RM2_translated.iso exists: {ex.Message}", 
+                    "ISO Check Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+        }
+        
+        private bool ForceFreshISOCopy()
+        {
+            try
+            {
+                // Get the RM2 project configuration
+                var gameConfig = config.GetGameConfig("RM2");
+                if (gameConfig == null || string.IsNullOrEmpty(gameConfig.FolderPath))
+                {
+                    MessageBox.Show("Please configure the RM2 project folder path in RM2 → Settings first.", 
+                        "RM2 Project Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                // Get the ISO path
+                if (string.IsNullOrEmpty(gameConfig.IsoPath))
+                {
+                    MessageBox.Show("Please configure the RM2 ISO path in RM2 → Settings first.", 
+                        "RM2 ISO Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
+                }
+
+                // Check if original ISO exists
+                if (!File.Exists(gameConfig.IsoPath))
+                {
+                    MessageBox.Show($"Original ISO file not found: {gameConfig.IsoPath}\n\nPlease check the ISO path in RM2 → Settings.", 
+                        "Original ISO Not Found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
+                }
+
+                // Construct the build folder path and target ISO path
+                string buildFolderPath = Path.Combine(gameConfig.ProjectRootPath, "build");
+                string targetISOPath = Path.Combine(buildFolderPath, "RM2_translated.iso");
+
+                // Always delete existing ISO if it exists
+                if (File.Exists(targetISOPath))
+                {
+                    try
+                    {
+                        File.Delete(targetISOPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to delete existing ISO file: {ex.Message}", 
+                            "Delete Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return false;
+                    }
+                }
+
+                // Ensure build folder exists
+                if (!Directory.Exists(buildFolderPath))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(buildFolderPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to create build folder: {ex.Message}", 
+                            "Create Folder Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return false;
+                    }
+                }
+
+                // Copy the original ISO to the build folder with progress indication
+                try
+                {
+                    // Get file size for progress calculation
+                    long fileSize = new FileInfo(gameConfig.IsoPath).Length;
+                    
+                    // Show progress dialog
+                    var progressForm = new fRM2Progress("ISO Copy", "Creating fresh ISO copy...", config, true);
+                    progressForm.ShowCopyProgress(gameConfig.IsoPath, targetISOPath, fileSize);
+                    progressForm.ShowDialog();
+                    
+                    // Check if copy was successful
+                    if (File.Exists(targetISOPath))
+                    {
+                        return true; // Successfully created fresh copy
+                    }
+                    else
+                    {
+                        MessageBox.Show("ISO copy operation was cancelled or failed.", 
+                            "Copy Cancelled", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to copy ISO file: {ex.Message}", 
+                        "Copy Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error creating fresh ISO copy: {ex.Message}", 
+                    "ISO Copy Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+        }
+
+        private void ExecuteRM2Script(string scriptName, string operationName, bool skipConfirmation = false)
         {
             try
             {
@@ -2013,22 +2254,27 @@ namespace TranslationApp
                     }
                 }
 
-                // Show confirmation dialog
-                var result = MessageBox.Show(
-                    $"This will execute {scriptName} to {operationName.ToLower()}.\n\n" +
-                    $"Script: {scriptPath}\n" +
-                    $"ISO: {gameConfig.IsoPath}\n\n" +
-                    "Do you want to continue?",
-                    $"Confirm {operationName}", 
-                    MessageBoxButtons.YesNo, 
-                    MessageBoxIcon.Question);
-
-                if (result == DialogResult.Yes)
+                // Show confirmation dialog (unless skipped)
+                if (!skipConfirmation)
                 {
-                    // Open the progress form to show real-time output
-                    var progressForm = new fRM2Progress(scriptPath, operationName, config);
-                    progressForm.ShowDialog();
+                    var result = MessageBox.Show(
+                        $"This will execute {scriptName} to {operationName.ToLower()}.\n\n" +
+                        $"Script: {scriptPath}\n" +
+                        $"ISO: {gameConfig.IsoPath}\n\n" +
+                        "Do you want to continue?",
+                        $"Confirm {operationName}", 
+                        MessageBoxButtons.YesNo, 
+                        MessageBoxIcon.Question);
+
+                    if (result != DialogResult.Yes)
+                    {
+                        return; // User cancelled
+                    }
                 }
+
+                // Open the progress form to show real-time output
+                var progressForm = new fRM2Progress(scriptPath, operationName, config);
+                progressForm.ShowDialog();
             }
             catch (Exception ex)
             {
