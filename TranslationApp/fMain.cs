@@ -935,7 +935,12 @@ namespace TranslationApp
 
             ChangeEnabledProp(true);
             EnableEventHandlers();
-            cbFileType.Text = "___";
+            
+            // Restore last used file selections if available
+            RestoreLastUsedFileSelections();
+            
+            // Save initial status filter states if this is the first time loading this project
+            SaveInitialStatusFilterStates();
         }
 
         private void DisableEventHandlers()
@@ -970,6 +975,9 @@ namespace TranslationApp
             {
                 Project.SetCurrentFolder(cbFileType.SelectedItem.ToString());
                 List<string> filelist = Project.CurrentFolder.FileList();
+                
+                // Save the current file type selection
+                SaveCurrentFileSelections();
 
                 if (cbFileType.SelectedItem.ToString().Equals("Menu", StringComparison.InvariantCultureIgnoreCase))
                 {
@@ -1023,6 +1031,9 @@ namespace TranslationApp
                 cbProblematic.Checked ? "Problematic" : string.Empty,
                 cbDone.Checked ? "Done" : string.Empty
             };
+            
+            System.Diagnostics.Debug.WriteLine($"UpdateDisplayedEntries - Status filters: ToDo={cbToDo.Checked}, Proof={cbProof.Checked}, Editing={cbEditing.Checked}, Problematic={cbProblematic.Checked}, Done={cbDone.Checked}");
+            System.Diagnostics.Debug.WriteLine($"UpdateDisplayedEntries - Checked filters: {string.Join(", ", checkedFilters.Where(f => !string.IsNullOrEmpty(f)))}");
             if (tcType.Controls[tcType.SelectedIndex].Text == "Text")
             {
                 CurrentTextList = Project.CurrentFolder.CurrentFile.CurrentSection.Entries.Where(e => checkedFilters.Contains(e.Status)).ToList();
@@ -1102,6 +1113,9 @@ namespace TranslationApp
             if (cbFileList.SelectedIndex != -1)
             {
                 Project.CurrentFolder.SetCurrentFile(cbFileList.SelectedIndex);
+                
+                // Save the current file selections
+                SaveCurrentFileSelections();
 
                 string filetype = cbFileType.SelectedItem.ToString();
                 if (filetype.Equals("Menu", StringComparison.InvariantCultureIgnoreCase))
@@ -1289,26 +1303,31 @@ namespace TranslationApp
         private void cbToDo_CheckedChanged(object sender, EventArgs e)
         {
             FilterEntryList();
+            SaveCurrentFileSelections();
         }
 
         private void cbProof_CheckedChanged(object sender, EventArgs e)
         {
             FilterEntryList();
+            SaveCurrentFileSelections();
         }
 
         private void cbDone_CheckedChanged(object sender, EventArgs e)
         {
             FilterEntryList();
+            SaveCurrentFileSelections();
         }
 
         private void cbProblematic_CheckedChanged(object sender, EventArgs e)
         {
             FilterEntryList();
+            SaveCurrentFileSelections();
         }
 
         private void cbInReview_CheckedChanged(object sender, EventArgs e)
         {
             FilterEntryList();
+            SaveCurrentFileSelections();
         }
 
         private void FilterEntryList()
@@ -1338,8 +1357,271 @@ namespace TranslationApp
             tbSectionName.Text = cbSections.Text;
             UpdateDisplayedEntries();
             UpdateStatusData();
+            
+            // Save the current file selections
+            SaveCurrentFileSelections();
         }
-
+        
+        /// <summary>
+        /// Saves the current file selections (file type, file name, section) and status filters to the game config
+        /// </summary>
+        private void SaveCurrentFileSelections()
+        {
+            try
+            {
+                if (Project?.CurrentFolder?.CurrentFile != null && !string.IsNullOrEmpty(gameName))
+                {
+                    var gameConfig = config.GetGameConfig(gameName);
+                    if (gameConfig != null)
+                    {
+                        // Save current file selections
+                        gameConfig.LastUsedFileType = cbFileType.Text;
+                        gameConfig.LastUsedFileName = cbFileList.Text;
+                        gameConfig.LastUsedSection = cbSections.Text;
+                        
+                        // Save current status filter states
+                        gameConfig.LastUsedToDo = cbToDo.Checked;
+                        gameConfig.LastUsedProof = cbProof.Checked;
+                        gameConfig.LastUsedEditing = cbEditing.Checked;
+                        gameConfig.LastUsedProblematic = cbProblematic.Checked;
+                        gameConfig.LastUsedDone = cbDone.Checked;
+                        
+                        // Save the configuration
+                        config.Save();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't crash the application
+                System.Diagnostics.Debug.WriteLine($"Error saving file selections: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Restores the last used file selections (file type, file name, section) and status filters from the game config
+        /// </summary>
+        private void RestoreLastUsedFileSelections()
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(gameName))
+                {
+                    var gameConfig = config.GetGameConfig(gameName);
+                    if (gameConfig != null && !string.IsNullOrEmpty(gameConfig.LastUsedFileType))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Restoring file selections: {gameConfig.LastUsedFileType} -> {gameConfig.LastUsedFileName} -> {gameConfig.LastUsedSection}");
+                        
+                        // Temporarily disable event handlers to prevent saving during restoration
+                        DisableEventHandlers();
+                        
+                        // Step 1: Restore file type and manually trigger the formatting logic
+                        if (cbFileType.Items.Contains(gameConfig.LastUsedFileType))
+                        {
+                            // Set the file type
+                            cbFileType.Text = gameConfig.LastUsedFileType;
+                            
+                            // Manually trigger the folder change and formatting logic
+                            Project.SetCurrentFolder(gameConfig.LastUsedFileType);
+                            
+                            // Manually populate and format the file list (same logic as cbFileType_TextChanged)
+                            List<string> filelist = Project.CurrentFolder.FileList();
+                            if (gameConfig.LastUsedFileType.Equals("Menu", StringComparison.InvariantCultureIgnoreCase))
+                            {
+                                cbFileList.DataSource = filelist;
+                            }
+                            else if (gameConfig.LastUsedFileType == "Skits")
+                            {
+                                List<XMLEntry> names = getSkitNameList();
+                                if (names.Count != 1157)
+                                {
+                                    cbFileList.DataSource = filelist.Select(x => x + ".xml").ToList();
+                                }
+                                else
+                                {
+                                    for (int i = 0, j = 0; i < filelist.Count; i++)
+                                    {
+                                        if (((i > 1072) && (i < 1082)) || ((i > 1092) && (i < 1099)))
+                                        {
+                                            j++;
+                                            filelist[i] += " | NO NAME";
+                                            continue;
+                                        }
+                                        filelist[i] = filelist[i] + " | " + (names[i - j].EnglishText ?? names[i - j].JapaneseText);
+                                    }
+                                    cbFileList.DataSource = filelist;
+                                }
+                            }
+                            else
+                            {
+                                for (int i = 0; i < filelist.Count; i++)
+                                {
+                                    string fname = Project.CurrentFolder.XMLFiles[i].FriendlyName ?? "NO NAME";
+                                    filelist[i] = filelist[i] + " | " + fname;
+                                }
+                                cbFileList.DataSource = filelist;
+                            }
+                            
+                            // Let the UI update and then restore file name
+                            this.BeginInvoke(new Action(() =>
+                            {
+                                // Step 2: Restore file name
+                                if (cbFileList.Items.Contains(gameConfig.LastUsedFileName))
+                                {
+                                    cbFileList.Text = gameConfig.LastUsedFileName;
+                                    
+                                    // Manually set the current file and populate sections
+                                    int fileIndex = cbFileList.Items.IndexOf(gameConfig.LastUsedFileName);
+                                    if (fileIndex >= 0)
+                                    {
+                                        Project.CurrentFolder.SetCurrentFile(fileIndex);
+                                        cbSections.DataSource = Project.CurrentFolder.CurrentFile.GetSectionNames();
+                                        
+                                        // Update the current text and speaker lists for the restored file
+                                        CurrentTextList = Project.CurrentFolder.CurrentFile.CurrentSection.Entries;
+                                        CurrentSpeakerList = Project.CurrentFolder.CurrentFile.Speakers;
+                                    }
+                                    
+                                    // Let the UI update and then restore section
+                                    this.BeginInvoke(new Action(() =>
+                                    {
+                                        // Step 3: Restore section
+                                        if (cbSections.Items.Contains(gameConfig.LastUsedSection))
+                                        {
+                                            cbSections.Text = gameConfig.LastUsedSection;
+                                            
+                                            // Manually set the current section in the project
+                                            Project.CurrentFolder.CurrentFile.SetSection(gameConfig.LastUsedSection);
+                                            
+                                            // Update the current text and speaker lists
+                                            CurrentTextList = Project.CurrentFolder.CurrentFile.CurrentSection.Entries;
+                                            CurrentSpeakerList = Project.CurrentFolder.CurrentFile.Speakers;
+                                        }
+                                        
+                                        // Step 4: Restore status filter states
+                                        RestoreStatusFilterStates(gameConfig);
+                                        
+                                        // Step 5: Ensure current lists are properly initialized
+                                        if (Project?.CurrentFolder?.CurrentFile?.CurrentSection != null)
+                                        {
+                                            CurrentTextList = Project.CurrentFolder.CurrentFile.CurrentSection.Entries;
+                                            CurrentSpeakerList = Project.CurrentFolder.CurrentFile.Speakers;
+                                        }
+                                        
+                                        // Re-enable event handlers
+                                        EnableEventHandlers();
+                                        
+                                        // Now update the display with the restored filters applied
+                                        UpdateDisplayedEntries();
+                                        UpdateStatusData();
+                                    }));
+                                }
+                                else
+                                {
+                                    // Re-enable event handlers if file name not found
+                                    EnableEventHandlers();
+                                    UpdateDisplayedEntries();
+                                    UpdateStatusData();
+                                }
+                            }));
+                        }
+                        else
+                        {
+                            // Re-enable event handlers if file type not found
+                            EnableEventHandlers();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't crash the application
+                System.Diagnostics.Debug.WriteLine($"Error restoring file selections: {ex.Message}");
+                
+                // Make sure event handlers are re-enabled even if there's an error
+                EnableEventHandlers();
+            }
+                }
+        
+        /// <summary>
+        /// Saves the initial status filter states when a project is first loaded
+        /// </summary>
+        private void SaveInitialStatusFilterStates()
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(gameName))
+                {
+                    var gameConfig = config.GetGameConfig(gameName);
+                    if (gameConfig != null)
+                    {
+                        // Only save if we don't have saved status filter states yet
+                        if (string.IsNullOrEmpty(gameConfig.LastUsedFileType))
+                        {
+                            // Save current status filter states as initial values
+                            gameConfig.LastUsedToDo = cbToDo.Checked;
+                            gameConfig.LastUsedProof = cbProof.Checked;
+                            gameConfig.LastUsedEditing = cbEditing.Checked;
+                            gameConfig.LastUsedProblematic = cbProblematic.Checked;
+                            gameConfig.LastUsedDone = cbDone.Checked;
+                            
+                            // Save the configuration
+                            config.Save();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't crash the application
+                System.Diagnostics.Debug.WriteLine($"Error saving initial status filter states: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Restores the last used status filter states from the game config
+        /// </summary>
+        private void RestoreStatusFilterStates(GameConfig gameConfig)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"Restoring status filters: ToDo={gameConfig.LastUsedToDo}, Proof={gameConfig.LastUsedProof}, Editing={gameConfig.LastUsedEditing}, Problematic={gameConfig.LastUsedProblematic}, Done={gameConfig.LastUsedDone}");
+                
+                // Temporarily disable event handlers to prevent saving during restoration
+                cbToDo.CheckedChanged -= cbToDo_CheckedChanged;
+                cbProof.CheckedChanged -= cbProof_CheckedChanged;
+                cbDone.CheckedChanged -= cbDone_CheckedChanged;
+                cbProblematic.CheckedChanged -= cbProblematic_CheckedChanged;
+                cbEditing.CheckedChanged -= cbInReview_CheckedChanged;
+                
+                // Restore status filter states
+                cbToDo.Checked = gameConfig.LastUsedToDo;
+                cbProof.Checked = gameConfig.LastUsedProof;
+                cbEditing.Checked = gameConfig.LastUsedEditing;
+                cbProblematic.Checked = gameConfig.LastUsedProblematic;
+                cbDone.Checked = gameConfig.LastUsedDone;
+                
+                // Re-enable event handlers
+                cbToDo.CheckedChanged += cbToDo_CheckedChanged;
+                cbProof.CheckedChanged += cbProof_CheckedChanged;
+                cbDone.CheckedChanged += cbDone_CheckedChanged;
+                cbProblematic.CheckedChanged += cbProblematic_CheckedChanged;
+                cbEditing.CheckedChanged += cbInReview_CheckedChanged;
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't crash the application
+                System.Diagnostics.Debug.WriteLine($"Error restoring status filter states: {ex.Message}");
+                
+                // Make sure event handlers are re-enabled even if there's an error
+                cbToDo.CheckedChanged += cbToDo_CheckedChanged;
+                cbProof.CheckedChanged += cbProof_CheckedChanged;
+                cbDone.CheckedChanged += cbDone_CheckedChanged;
+                cbProblematic.CheckedChanged += cbProblematic_CheckedChanged;
+                cbEditing.CheckedChanged += cbInReview_CheckedChanged;
+            }
+        }
+        
         private void fMain_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Control)

@@ -16,6 +16,18 @@ namespace TranslationApp
         private bool _showAutoLoadMessage;
         private string _projectRootPath;
         private string _pythonPath;
+        
+        // Last used file selection properties
+        private string _lastUsedFileType;
+        private string _lastUsedFileName;
+        private string _lastUsedSection;
+        
+        // Last used status filter properties
+        private bool _lastUsedToDo;
+        private bool _lastUsedProof;
+        private bool _lastUsedEditing;
+        private bool _lastUsedProblematic;
+        private bool _lastUsedDone;
 
         public GameConfig()
         {
@@ -80,6 +92,56 @@ namespace TranslationApp
         {
             get => _pythonPath;
             set => _pythonPath = value;
+        }
+        
+        // Last used file selection properties
+        public string LastUsedFileType
+        {
+            get => _lastUsedFileType;
+            set => _lastUsedFileType = value;
+        }
+        
+        public string LastUsedFileName
+        {
+            get => _lastUsedFileName;
+            set => _lastUsedFileName = value;
+        }
+        
+        public string LastUsedSection
+        {
+            get => _lastUsedSection;
+            set => _lastUsedSection = value;
+        }
+        
+        // Last used status filter properties
+        public bool LastUsedToDo
+        {
+            get => _lastUsedToDo;
+            set => _lastUsedToDo = value;
+        }
+        
+        public bool LastUsedProof
+        {
+            get => _lastUsedProof;
+            set => _lastUsedProof = value;
+        }
+        
+        public bool LastUsedEditing
+        {
+            get => _lastUsedEditing;
+            set => _lastUsedEditing = value;
+        }
+        
+        public bool LastUsedProblematic
+        {
+            get => _lastUsedProblematic;
+            set => _lastUsedProblematic = value;
+        }
+        
+        public bool LastUsedDone
+        {
+            get => _lastUsedDone;
+            set => _lastUsedDone = value;
         }
 
     }
