@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -28,6 +29,9 @@ namespace TranslationApp
         private int nbJapaneseDuplicate;
         private static string windowName;
         FormWindowState LastWindowState = FormWindowState.Minimized;
+
+        // Auto-apply service
+        private AutoApplyService autoApplyService;
 
         // RM2 Menu Items
         private System.Windows.Forms.ToolStripMenuItem tsRM2ApplyTranslations;
@@ -83,6 +87,8 @@ namespace TranslationApp
             config = new Config();
             config.Load();
             PackingAssistant = new PackingProject();
+
+
 
             // Set initial visibility state
             UpdateOptionsVisibility();
@@ -712,14 +718,32 @@ namespace TranslationApp
         private void bSave_Click(object sender, EventArgs e)
         {
             int count = 0;
+            var savedFiles = new List<string>();
+            
             foreach (var folder in Project.XmlFolders)
             {
                 count += folder.SaveChanged();
+                
+                // Collect saved file paths
+                foreach (var file in folder.XMLFiles)
+                {
+                    if (file.needsSave == false && !string.IsNullOrEmpty(file.FilePath))
+                    {
+                        savedFiles.Add(file.FilePath);
+                    }
+                }
             }
+            
             MessageBox.Show($"{count} XML files has been written to disk");
 
             UpdateDisplayedEntries();
             UpdateStatusData();
+
+            // Trigger auto-apply for saved files
+            if (savedFiles.Count > 0)
+            {
+                TriggerAutoApply(savedFiles);
+            }
         }
 
 
@@ -941,6 +965,9 @@ namespace TranslationApp
             
             // Save initial status filter states if this is the first time loading this project
             SaveInitialStatusFilterStates();
+
+            // Initialize auto-apply service if this is an RM2 project
+            InitializeAutoApplyService();
         }
 
         private void DisableEventHandlers()
@@ -1622,6 +1649,15 @@ namespace TranslationApp
             }
         }
         
+        /// <summary>
+        /// Handles keyboard shortcuts for the main form
+        /// Available shortcuts:
+        /// - Ctrl+S: Save current file and trigger auto-apply
+        /// - Ctrl+Up/Down: Navigate through entries
+        /// - Ctrl+Alt+Up/Down: Navigate through file list
+        /// - Ctrl+L: Copy Japanese text to English field
+        /// - Ctrl+E: Toggle empty entries filter
+        /// </summary>
         private void fMain_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Control)
@@ -1694,7 +1730,21 @@ namespace TranslationApp
                             tbEnglishText.Text = tbJapaneseText.Text;
                         break;
                     case Keys.S:
-                        bSaveAll.PerformClick();
+                        // Save current file and trigger auto-apply
+                        if (Project?.CurrentFolder?.CurrentFile != null)
+                        {
+                            Project.CurrentFolder.CurrentFile.SaveToDisk();
+                            UpdateDisplayedEntries();
+                            UpdateStatusData();
+                            
+                            // Trigger auto-apply for the current file
+                            TriggerAutoApply(new List<string> { Project.CurrentFolder.CurrentFile.FilePath });
+                        }
+                        else
+                        {
+                            // Fallback to save all if no current file
+                            bSaveAll.PerformClick();
+                        }
                         break;
                     case Keys.E:
                         if (cbEmpty.Enabled)
@@ -1903,6 +1953,9 @@ namespace TranslationApp
             Project.CurrentFolder.CurrentFile.SaveToDisk();
             UpdateDisplayedEntries();
             UpdateStatusData();
+
+            // Trigger auto-apply if enabled
+            TriggerAutoApply(new List<string> { Project.CurrentFolder.CurrentFile.FilePath });
         }
         private void saveCurrentFileToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -1919,6 +1972,20 @@ namespace TranslationApp
             MessageBox.Show("Text has been written to the XML files");
             UpdateDisplayedEntries();
             UpdateStatusData();
+
+            // Trigger auto-apply for all saved files
+            var allXmlFiles = new List<string>();
+            foreach (var folder in Project.XmlFolders)
+            {
+                foreach (var file in folder.XMLFiles)
+                {
+                    if (!string.IsNullOrEmpty(file.FilePath))
+                    {
+                        allXmlFiles.Add(file.FilePath);
+                    }
+                }
+            }
+            TriggerAutoApply(allXmlFiles);
         }
         private void reloadAllToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -1996,6 +2063,111 @@ namespace TranslationApp
         private void importFromCsvToolStripMenuItem_Click(object sender, EventArgs e)
         {
             MessageBox.Show("Not implemented yet");
+        }
+
+        #region Auto-Apply Service Event Handlers
+
+        private void AutoApplyService_ProgressChanged(object sender, AutoApplyProgressEventArgs e)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => AutoApplyService_ProgressChanged(sender, e)));
+                return;
+            }
+
+            // Update progress bar
+            progressBarAutoApply.Value = e.Percentage;
+            lblAutoApplyStatus.Text = e.Message;
+            panelAutoApplyProgress.Visible = true;
+        }
+
+        private void AutoApplyService_ProcessingCompleted(object sender, AutoApplyCompletedEventArgs e)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => AutoApplyService_ProcessingCompleted(sender, e)));
+                return;
+            }
+
+            // Hide progress bar
+            panelAutoApplyProgress.Visible = false;
+
+            if (e.Success)
+            {
+                // Show success message
+                if (e.ProcessedXmlFiles > 0)
+                {
+                    MessageBox.Show($"Auto-apply completed successfully!\n\nProcessed {e.ProcessedXmlFiles} XML file(s)\nUpdated {e.ProcessedArcFiles} ARC file(s)", 
+                        "Auto-Apply Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            else
+            {
+                // Show error message
+                MessageBox.Show($"Auto-apply failed: {e.ErrorMessage}", 
+                    "Auto-Apply Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Initializes the auto-apply service for RM2 projects
+        /// </summary>
+        private void InitializeAutoApplyService()
+        {
+            try
+            {
+                // Check if this is an RM2 project
+                if (Project != null && Project.ProjectPath.Contains("RM2"))
+                {
+                    var rm2Config = config.GetGameConfig("RM2");
+                    if (rm2Config != null)
+                    {
+                        autoApplyService = new AutoApplyService(rm2Config);
+                        autoApplyService.ProgressChanged += AutoApplyService_ProgressChanged;
+                        autoApplyService.ProcessingCompleted += AutoApplyService_ProcessingCompleted;
+                    }
+                }
+                else
+                {
+                    // Clean up auto-apply service for non-RM2 projects
+                    if (autoApplyService != null)
+                    {
+                        autoApplyService.ProgressChanged -= AutoApplyService_ProgressChanged;
+                        autoApplyService.ProcessingCompleted -= AutoApplyService_ProcessingCompleted;
+                        autoApplyService = null;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to initialize auto-apply service: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Triggers the auto-apply workflow for the specified XML files
+        /// </summary>
+        private void TriggerAutoApply(List<string> xmlFiles)
+        {
+            try
+            {
+                // Check if auto-apply is enabled and we have an RM2 project
+                if (autoApplyService == null || !gameConfig?.AutoApplyEnabled == true)
+                    return;
+
+                // Check if this is an RM2 project
+                if (!Project.ProjectPath.Contains("RM2"))
+                    return;
+
+                // Start the auto-apply process
+                _ = autoApplyService.ProcessXmlFilesAsync(xmlFiles);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to trigger auto-apply: {ex.Message}");
+            }
         }
 
         private void setFileAsDoneToolStripMenuItem_Click(object sender, EventArgs e)

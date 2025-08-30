@@ -121,6 +121,12 @@ namespace TranslationApp
             this.panelRM2Settings = new System.Windows.Forms.Panel();
             this.lblRM2Settings = new System.Windows.Forms.Label();
             this.cbRM2Options = new System.Windows.Forms.ComboBox();
+            
+            // Auto-apply progress controls
+            this.panelAutoApplyProgress = new System.Windows.Forms.Panel();
+            this.progressBarAutoApply = new System.Windows.Forms.ProgressBar();
+            this.lblAutoApplyStatus = new System.Windows.Forms.Label();
+            
             this.cbMatchWhole = new System.Windows.Forms.CheckBox();
             this.cbCase = new System.Windows.Forms.CheckBox();
             this.lEntriesFound = new System.Windows.Forms.Label();
@@ -1078,6 +1084,37 @@ namespace TranslationApp
             this.cbRM2Options.TabIndex = 0;
             this.cbRM2Options.SelectedIndexChanged += new System.EventHandler(this.cbRM2Options_SelectedIndexChanged);
             // 
+            // panelAutoApplyProgress
+            // 
+            this.panelAutoApplyProgress.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.panelAutoApplyProgress.BackColor = System.Drawing.SystemColors.Control;
+            this.panelAutoApplyProgress.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.panelAutoApplyProgress.Controls.Add(this.progressBarAutoApply);
+            this.panelAutoApplyProgress.Controls.Add(this.lblAutoApplyStatus);
+            this.panelAutoApplyProgress.Location = new System.Drawing.Point(1000, 650);
+            this.panelAutoApplyProgress.Name = "panelAutoApplyProgress";
+            this.panelAutoApplyProgress.Size = new System.Drawing.Size(280, 60);
+            this.panelAutoApplyProgress.TabIndex = 58;
+            this.panelAutoApplyProgress.Visible = false;
+            // 
+            // progressBarAutoApply
+            // 
+            this.progressBarAutoApply.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.progressBarAutoApply.Location = new System.Drawing.Point(8, 30);
+            this.progressBarAutoApply.Name = "progressBarAutoApply";
+            this.progressBarAutoApply.Size = new System.Drawing.Size(264, 23);
+            this.progressBarAutoApply.TabIndex = 1;
+            // 
+            // lblAutoApplyStatus
+            // 
+            this.lblAutoApplyStatus.AutoSize = true;
+            this.lblAutoApplyStatus.Location = new System.Drawing.Point(8, 8);
+            this.lblAutoApplyStatus.Name = "lblAutoApplyStatus";
+            this.lblAutoApplyStatus.Size = new System.Drawing.Size(100, 13);
+            this.lblAutoApplyStatus.TabIndex = 0;
+            this.lblAutoApplyStatus.Text = "Auto-Apply Status";
+            // 
             // cbMatchWhole
             // 
             this.cbMatchWhole.AutoSize = true;
@@ -1431,6 +1468,7 @@ namespace TranslationApp
             this.Controls.Add(this.splitter1);
             this.Controls.Add(this.leftColumn);
             this.Controls.Add(this.menuStripMain);
+            this.Controls.Add(this.panelAutoApplyProgress);
             this.KeyPreview = true;
             this.MainMenuStrip = this.menuStripMain;
             this.Name = "fMain";
@@ -1465,6 +1503,8 @@ namespace TranslationApp
             this.leftColumn.PerformLayout();
             this.panelRM2Settings.ResumeLayout(false);
             this.panelRM2Settings.PerformLayout();
+            this.panelAutoApplyProgress.ResumeLayout(false);
+            this.panelAutoApplyProgress.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -1589,6 +1629,11 @@ namespace TranslationApp
         private System.Windows.Forms.Panel panelRM2Settings;
         private System.Windows.Forms.Label lblRM2Settings;
         private System.Windows.Forms.ComboBox cbRM2Options;
+
+        // Auto-apply progress controls
+        private System.Windows.Forms.Panel panelAutoApplyProgress;
+        private System.Windows.Forms.ProgressBar progressBarAutoApply;
+        private System.Windows.Forms.Label lblAutoApplyStatus;
 
     }
 }

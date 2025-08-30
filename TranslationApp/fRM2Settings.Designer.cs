@@ -39,6 +39,7 @@ namespace TranslationApp
             this.txtPythonPath = new System.Windows.Forms.TextBox();
             this.btnBrowsePython = new System.Windows.Forms.Button();
             this.btnDetectPython = new System.Windows.Forms.Button();
+            this.chkAutoApplyEnabled = new System.Windows.Forms.CheckBox();
             this.btnSave = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
             this.SuspendLayout();
@@ -155,14 +156,24 @@ namespace TranslationApp
             this.btnDetectPython.Text = "Detect";
             this.btnDetectPython.UseVisualStyleBackColor = true;
             this.btnDetectPython.Click += new System.EventHandler(this.btnDetectPython_Click);
-            this.btnDetectPython.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right))));
+            this.btnDetectPython.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
+            // 
+            // chkAutoApplyEnabled
+            // 
+            this.chkAutoApplyEnabled.AutoSize = true;
+            this.chkAutoApplyEnabled.Location = new System.Drawing.Point(88, 115);
+            this.chkAutoApplyEnabled.Name = "chkAutoApplyEnabled";
+            this.chkAutoApplyEnabled.Size = new System.Drawing.Size(200, 17);
+            this.chkAutoApplyEnabled.TabIndex = 11;
+            this.chkAutoApplyEnabled.Text = "Enable Auto-Apply on Save";
+            this.chkAutoApplyEnabled.UseVisualStyleBackColor = true;
             // 
             // btnSave
             // 
             this.btnSave.Location = new System.Drawing.Point(600, 150);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(75, 23);
-            this.btnSave.TabIndex = 11;
+            this.btnSave.TabIndex = 12;
             this.btnSave.Text = "Save";
             this.btnSave.UseVisualStyleBackColor = true;
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
@@ -173,7 +184,7 @@ namespace TranslationApp
             this.btnCancel.Location = new System.Drawing.Point(682, 150);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(75, 23);
-            this.btnCancel.TabIndex = 12;
+            this.btnCancel.TabIndex = 13;
             this.btnCancel.Text = "Cancel";
             this.btnCancel.UseVisualStyleBackColor = true;
             this.btnCancel.Click += new System.EventHandler(this.btnCancel_Click);
@@ -183,10 +194,11 @@ namespace TranslationApp
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(779, 185);
+            this.ClientSize = new System.Drawing.Size(779, 210);
             this.Controls.Add(this.btnCancel);
             this.Controls.Add(this.btnSave);
             this.Controls.Add(this.btnDetectPython);
+            this.Controls.Add(this.chkAutoApplyEnabled);
             this.Controls.Add(this.btnBrowsePython);
             this.Controls.Add(this.txtPythonPath);
             this.Controls.Add(this.lblPythonPath);
@@ -203,7 +215,7 @@ namespace TranslationApp
             this.Name = "fRM2Settings";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "RM2 Settings";
-            this.MinimumSize = new System.Drawing.Size(600, 200);
+            this.MinimumSize = new System.Drawing.Size(600, 225);
             this.ResumeLayout(false);
             this.PerformLayout();
         }
@@ -221,6 +233,7 @@ namespace TranslationApp
         private System.Windows.Forms.TextBox txtPythonPath;
         private System.Windows.Forms.Button btnBrowsePython;
         private System.Windows.Forms.Button btnDetectPython;
+        private System.Windows.Forms.CheckBox chkAutoApplyEnabled;
         private System.Windows.Forms.Button btnSave;
         private System.Windows.Forms.Button btnCancel;
     }

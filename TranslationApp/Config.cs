@@ -144,6 +144,43 @@ namespace TranslationApp
             set => _lastUsedDone = value;
         }
 
+        // Auto-apply properties
+        private bool _autoApplyEnabled;
+        private Dictionary<string, DateTime> _lastXmlProcessed;
+        private Dictionary<string, DateTime> _lastArcProcessed;
+        private List<string> _failedXmlFiles;
+        private DateTime _lastIsoReplacement;
+
+        public bool AutoApplyEnabled
+        {
+            get => _autoApplyEnabled;
+            set => _autoApplyEnabled = value;
+        }
+
+        public Dictionary<string, DateTime> LastXmlProcessed
+        {
+            get => _lastXmlProcessed ?? (_lastXmlProcessed = new Dictionary<string, DateTime>());
+            set => _lastXmlProcessed = value;
+        }
+
+        public Dictionary<string, DateTime> LastArcProcessed
+        {
+            get => _lastArcProcessed ?? (_lastArcProcessed = new Dictionary<string, DateTime>());
+            set => _lastArcProcessed = value;
+        }
+
+        public List<string> FailedXmlFiles
+        {
+            get => _failedXmlFiles ?? (_failedXmlFiles = new List<string>());
+            set => _failedXmlFiles = value;
+        }
+
+        public DateTime LastIsoReplacement
+        {
+            get => _lastIsoReplacement;
+            set => _lastIsoReplacement = value;
+        }
+
     }
     public class Config
     {

@@ -56,6 +56,9 @@ namespace TranslationApp
                 {
                     txtPythonPath.Text = "";
                 }
+
+                // Set the auto-apply checkbox
+                chkAutoApplyEnabled.Checked = gameConfig.AutoApplyEnabled;
             }
             else
             {
@@ -63,6 +66,7 @@ namespace TranslationApp
                 txtIsoPath.Text = "";
                 chkShowAutoLoadMessage.Checked = true; // Default to showing the message
                 txtPythonPath.Text = "";
+                chkAutoApplyEnabled.Checked = false; // Default to disabled
             }
         }
 
@@ -226,6 +230,7 @@ namespace TranslationApp
             gameConfig.IsoPath = isoPath;
             gameConfig.ShowAutoLoadMessage = chkShowAutoLoadMessage.Checked;
             gameConfig.PythonPath = txtPythonPath.Text.Trim();
+            gameConfig.AutoApplyEnabled = chkAutoApplyEnabled.Checked;
             config.Save();
 
             MessageBox.Show("RM2 Settings saved successfully!", "Settings Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
