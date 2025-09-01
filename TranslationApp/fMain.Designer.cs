@@ -1091,11 +1091,12 @@ namespace TranslationApp
             this.panelAutoApplyProgress.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.panelAutoApplyProgress.Controls.Add(this.progressBarAutoApply);
             this.panelAutoApplyProgress.Controls.Add(this.lblAutoApplyStatus);
-            this.panelAutoApplyProgress.Location = new System.Drawing.Point(1000, 650);
+            this.panelAutoApplyProgress.Location = new System.Drawing.Point(1021, 673);
             this.panelAutoApplyProgress.Name = "panelAutoApplyProgress";
             this.panelAutoApplyProgress.Size = new System.Drawing.Size(280, 60);
             this.panelAutoApplyProgress.TabIndex = 58;
             this.panelAutoApplyProgress.Visible = false;
+            this.panelAutoApplyProgress.BringToFront();
             // 
             // progressBarAutoApply
             // 

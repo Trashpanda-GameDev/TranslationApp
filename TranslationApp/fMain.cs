@@ -722,19 +722,29 @@ namespace TranslationApp
             
             foreach (var folder in Project.XmlFolders)
             {
-                count += folder.SaveChanged();
-                
-                // Collect saved file paths
+                // Collect files that need saving BEFORE calling SaveChanged
+                var filesToSave = new List<string>();
                 foreach (var file in folder.XMLFiles)
                 {
-                    if (file.needsSave == false && !string.IsNullOrEmpty(file.FilePath))
+                    if (file.needsSave && !string.IsNullOrEmpty(file.FilePath))
                     {
-                        savedFiles.Add(file.FilePath);
+                        filesToSave.Add(file.FilePath);
                     }
                 }
+                
+                // Save the files that need saving
+                count += folder.SaveChanged();
+                
+                // Add the files that were actually saved to our list
+                savedFiles.AddRange(filesToSave);
             }
             
-            MessageBox.Show($"{count} XML files has been written to disk");
+            // Show save status in the status area instead of message box
+            if (lErrors != null)
+            {
+                lErrors.Text = $"{count} XML files saved successfully";
+                lErrors.ForeColor = Color.Green;
+            }
 
             UpdateDisplayedEntries();
             UpdateStatusData();
@@ -1730,21 +1740,8 @@ namespace TranslationApp
                             tbEnglishText.Text = tbJapaneseText.Text;
                         break;
                     case Keys.S:
-                        // Save current file and trigger auto-apply
-                        if (Project?.CurrentFolder?.CurrentFile != null)
-                        {
-                            Project.CurrentFolder.CurrentFile.SaveToDisk();
-                            UpdateDisplayedEntries();
-                            UpdateStatusData();
-                            
-                            // Trigger auto-apply for the current file
-                            TriggerAutoApply(new List<string> { Project.CurrentFolder.CurrentFile.FilePath });
-                        }
-                        else
-                        {
-                            // Fallback to save all if no current file
-                            bSaveAll.PerformClick();
-                        }
+                        // Save all changed files and trigger auto-apply
+                        bSaveAll.PerformClick();
                         break;
                     case Keys.E:
                         if (cbEmpty.Enabled)
@@ -2076,9 +2073,23 @@ namespace TranslationApp
             }
 
             // Update progress bar
+            progressBarAutoApply.Maximum = 100;
             progressBarAutoApply.Value = e.Percentage;
-            lblAutoApplyStatus.Text = e.Message;
+            
+            // Update status label with detailed information
+            var statusText = $"{e.Message} ({e.Current}/{e.Total} - {e.Percentage}%)";
+            lblAutoApplyStatus.Text = statusText;
+            
+            // Show progress panel and ensure it's positioned at bottom-right
             panelAutoApplyProgress.Visible = true;
+            PositionProgressBarAtBottomRight();
+            
+            // Also update the main status area for visibility
+            if (lErrors != null)
+            {
+                lErrors.Text = $"Auto-Apply: {e.Message}";
+                lErrors.ForeColor = Color.Blue;
+            }
         }
 
         private void AutoApplyService_ProcessingCompleted(object sender, AutoApplyCompletedEventArgs e)
@@ -2094,18 +2105,49 @@ namespace TranslationApp
 
             if (e.Success)
             {
-                // Show success message
+                // Show success message in status area
                 if (e.ProcessedXmlFiles > 0)
                 {
-                    MessageBox.Show($"Auto-apply completed successfully!\n\nProcessed {e.ProcessedXmlFiles} XML file(s)\nUpdated {e.ProcessedArcFiles} ARC file(s)", 
-                        "Auto-Apply Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    var successMessage = $"Auto-apply completed! Processed {e.ProcessedXmlFiles} XML file(s), Updated {e.ProcessedArcFiles} ARC file(s)";
+                    if (lErrors != null)
+                    {
+                        lErrors.Text = successMessage;
+                        lErrors.ForeColor = Color.Green;
+                    }
+                    Debug.WriteLine($"[AutoApply] {successMessage}");
+                    Console.WriteLine($"[AutoApply] {successMessage}");
                 }
             }
             else
             {
-                // Show error message
-                MessageBox.Show($"Auto-apply failed: {e.ErrorMessage}", 
-                    "Auto-Apply Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                // Show error message in status area
+                var errorMessage = $"Auto-apply failed: {e.ErrorMessage}";
+                if (lErrors != null)
+                {
+                    lErrors.Text = errorMessage;
+                    lErrors.ForeColor = Color.Red;
+                }
+                Debug.WriteLine($"[AutoApply] {errorMessage}");
+                Console.WriteLine($"[AutoApply] {errorMessage}");
+            }
+        }
+
+        /// <summary>
+        /// Positions the progress bar at the bottom-right corner of the application window
+        /// </summary>
+        private void PositionProgressBarAtBottomRight()
+        {
+            if (panelAutoApplyProgress != null)
+            {
+                // Get the form's client area
+                var clientSize = this.ClientSize;
+                
+                // Position at bottom-right corner with some padding
+                var x = clientSize.Width - panelAutoApplyProgress.Width - 10;
+                var y = clientSize.Height - panelAutoApplyProgress.Height - 10;
+                
+                panelAutoApplyProgress.Location = new System.Drawing.Point(x, y);
+                panelAutoApplyProgress.BringToFront();
             }
         }
 
@@ -2153,20 +2195,49 @@ namespace TranslationApp
         {
             try
             {
+                var message = $"[AutoApply] TriggerAutoApply called with {xmlFiles.Count} XML files";
+                Debug.WriteLine(message);
+                Console.WriteLine(message);
+                
                 // Check if auto-apply is enabled and we have an RM2 project
-                if (autoApplyService == null || !gameConfig?.AutoApplyEnabled == true)
+                if (autoApplyService == null)
+                {
+                    var nullMessage = "[AutoApply] Auto-apply service is null, skipping";
+                    Debug.WriteLine(nullMessage);
+                    Console.WriteLine(nullMessage);
                     return;
+                }
+                
+                if (!gameConfig?.AutoApplyEnabled == true)
+                {
+                    var disabledMessage = "[AutoApply] Auto-apply is disabled in settings, skipping";
+                    Debug.WriteLine(disabledMessage);
+                    Console.WriteLine(disabledMessage);
+                    return;
+                }
 
                 // Check if this is an RM2 project
                 if (!Project.ProjectPath.Contains("RM2"))
+                {
+                    var notRm2Message = "[AutoApply] Not an RM2 project, skipping auto-apply";
+                    Debug.WriteLine(notRm2Message);
+                    Console.WriteLine(notRm2Message);
                     return;
+                }
 
+                var startMessage = $"[AutoApply] Starting auto-apply process for files: {string.Join(", ", xmlFiles.Select(Path.GetFileName))}";
+                Debug.WriteLine(startMessage);
+                Console.WriteLine(startMessage);
+                
                 // Start the auto-apply process
                 _ = autoApplyService.ProcessXmlFilesAsync(xmlFiles);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to trigger auto-apply: {ex.Message}");
+                var errorMessage = $"[AutoApply] Exception in TriggerAutoApply: {ex.Message}";
+                Debug.WriteLine(errorMessage);
+                Console.WriteLine(errorMessage);
+                Debug.WriteLine($"[AutoApply] Stack trace: {ex.StackTrace}");
             }
         }
 
@@ -2365,6 +2436,12 @@ namespace TranslationApp
 
         private void fMain_Resize(object sender, EventArgs e)
         {
+            // Reposition progress bar when window is resized
+            if (panelAutoApplyProgress != null && panelAutoApplyProgress.Visible)
+            {
+                PositionProgressBarAtBottomRight();
+            }
+            
             if (WindowState != LastWindowState)
             {
                 if (WindowState == FormWindowState.Maximized)
