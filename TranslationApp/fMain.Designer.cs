@@ -54,6 +54,11 @@ namespace TranslationApp
             this.toolsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.hexToJapaneseToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.searchJapaneseToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsRM2 = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsRM2Settings = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsRM2ApplyTranslations = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsRM2ReplaceAllFiles = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsRM2ForceFreshISO = new System.Windows.Forms.ToolStripMenuItem();
             this.tbJapaneseText = new System.Windows.Forms.TextBox();
             this.tbNoteText = new System.Windows.Forms.TextBox();
             this.lblJapanese = new System.Windows.Forms.Label();
@@ -113,6 +118,15 @@ namespace TranslationApp
             this.tpSearch = new System.Windows.Forms.TabPage();
             this.tbWrap = new System.Windows.Forms.TextBox();
             this.tbMax = new System.Windows.Forms.TextBox();
+            this.panelRM2Settings = new System.Windows.Forms.Panel();
+            this.lblRM2Settings = new System.Windows.Forms.Label();
+            this.cbRM2Options = new System.Windows.Forms.ComboBox();
+            
+            // Auto-apply progress controls
+            this.panelAutoApplyProgress = new System.Windows.Forms.Panel();
+            this.progressBarAutoApply = new System.Windows.Forms.ProgressBar();
+            this.lblAutoApplyStatus = new System.Windows.Forms.Label();
+            
             this.cbMatchWhole = new System.Windows.Forms.CheckBox();
             this.cbCase = new System.Windows.Forms.CheckBox();
             this.lEntriesFound = new System.Windows.Forms.Label();
@@ -156,6 +170,7 @@ namespace TranslationApp
             this.pPreviewContainer.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.textPreview1)).BeginInit();
             this.leftColumn.SuspendLayout();
+            this.panelRM2Settings.SuspendLayout();
             this.SuspendLayout();
             // 
             // menuStripMain
@@ -165,7 +180,8 @@ namespace TranslationApp
             this.translationToolStripMenuItem,
             this.fileToolStripMenuItem,
             this.packToolStripMenuItem,
-            this.toolsToolStripMenuItem});
+            this.toolsToolStripMenuItem,
+            this.tsRM2});
             this.menuStripMain.Location = new System.Drawing.Point(0, 0);
             this.menuStripMain.Name = "menuStripMain";
             this.menuStripMain.Padding = new System.Windows.Forms.Padding(4, 1, 0, 1);
@@ -328,6 +344,46 @@ namespace TranslationApp
             this.toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
             this.toolsToolStripMenuItem.Size = new System.Drawing.Size(46, 22);
             this.toolsToolStripMenuItem.Text = "Tools";
+            // 
+            // tsRM2
+            // 
+            this.tsRM2.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsRM2Settings,
+            this.tsRM2ApplyTranslations,
+            this.tsRM2ReplaceAllFiles,
+            this.tsRM2ForceFreshISO});
+            this.tsRM2.Name = "tsRM2";
+            this.tsRM2.Size = new System.Drawing.Size(41, 22);
+            this.tsRM2.Text = "RM2";
+            this.tsRM2.Visible = false;
+            // 
+            // tsRM2Settings
+            // 
+            this.tsRM2Settings.Name = "tsRM2Settings";
+            this.tsRM2Settings.Size = new System.Drawing.Size(104, 22);
+            this.tsRM2Settings.Text = "Settings";
+            this.tsRM2Settings.Click += new System.EventHandler(this.tsRM2Settings_Click);
+            // 
+            // tsRM2ApplyTranslations
+            //
+            this.tsRM2ApplyTranslations.Name = "tsRM2ApplyTranslations";
+            this.tsRM2ApplyTranslations.Size = new System.Drawing.Size(180, 22);
+            this.tsRM2ApplyTranslations.Text = "Apply Translations to files";
+            this.tsRM2ApplyTranslations.Click += new System.EventHandler(this.tsRM2ApplyTranslations_Click);
+            // 
+            // tsRM2ReplaceAllFiles
+            // 
+            this.tsRM2ReplaceAllFiles.Name = "tsRM2ReplaceAllFiles";
+            this.tsRM2ReplaceAllFiles.Size = new System.Drawing.Size(180, 22);
+            this.tsRM2ReplaceAllFiles.Text = "Update ISO with translated files";
+            this.tsRM2ReplaceAllFiles.Click += new System.EventHandler(this.tsRM2ReplaceAllFiles_Click);
+            // 
+            // tsRM2ForceFreshISO
+            // 
+            this.tsRM2ForceFreshISO.Name = "tsRM2ForceFreshISO";
+            this.tsRM2ForceFreshISO.Size = new System.Drawing.Size(180, 22);
+            this.tsRM2ForceFreshISO.Text = "Force Fresh ISO Copy";
+            this.tsRM2ForceFreshISO.Click += new System.EventHandler(this.tsRM2ForceFreshISO_Click);
             // 
             // hexToJapaneseToolStripMenuItem
             // 
@@ -997,6 +1053,68 @@ namespace TranslationApp
             this.tbMax.Text = "500";
             this.tbMax.KeyDown += new System.Windows.Forms.KeyEventHandler(this.tbMax_KeyDown);
             // 
+            // panelRM2Settings
+            // 
+            this.panelRM2Settings.Controls.Add(this.lblRM2Settings);
+            this.panelRM2Settings.Controls.Add(this.cbRM2Options);
+            this.panelRM2Settings.Location = new System.Drawing.Point(11, 190);
+            this.panelRM2Settings.Name = "panelRM2Settings";
+            this.panelRM2Settings.Size = new System.Drawing.Size(300, 40);
+            this.panelRM2Settings.TabIndex = 62;
+            this.panelRM2Settings.Visible = false;
+            // 
+            // lblRM2Settings
+            // 
+            this.lblRM2Settings.AutoSize = true;
+            this.lblRM2Settings.Location = new System.Drawing.Point(3, 3);
+            this.lblRM2Settings.Name = "lblRM2Settings";
+            this.lblRM2Settings.Size = new System.Drawing.Size(80, 13);
+            this.lblRM2Settings.TabIndex = 2;
+            this.lblRM2Settings.Text = "RM2";
+            // 
+            // cbRM2Options
+            // 
+            this.cbRM2Options.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cbRM2Options.FormattingEnabled = true;
+            this.cbRM2Options.Items.AddRange(new object[] {
+            "Settings"});
+            this.cbRM2Options.Location = new System.Drawing.Point(100, 3);
+            this.cbRM2Options.Name = "cbRM2Options";
+            this.cbRM2Options.Size = new System.Drawing.Size(194, 21);
+            this.cbRM2Options.TabIndex = 0;
+            this.cbRM2Options.SelectedIndexChanged += new System.EventHandler(this.cbRM2Options_SelectedIndexChanged);
+            // 
+            // panelAutoApplyProgress
+            // 
+            this.panelAutoApplyProgress.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.panelAutoApplyProgress.BackColor = System.Drawing.SystemColors.Control;
+            this.panelAutoApplyProgress.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.panelAutoApplyProgress.Controls.Add(this.progressBarAutoApply);
+            this.panelAutoApplyProgress.Controls.Add(this.lblAutoApplyStatus);
+            this.panelAutoApplyProgress.Location = new System.Drawing.Point(1000, 650);
+            this.panelAutoApplyProgress.Name = "panelAutoApplyProgress";
+            this.panelAutoApplyProgress.Size = new System.Drawing.Size(280, 60);
+            this.panelAutoApplyProgress.TabIndex = 58;
+            this.panelAutoApplyProgress.Visible = false;
+            // 
+            // progressBarAutoApply
+            // 
+            this.progressBarAutoApply.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.progressBarAutoApply.Location = new System.Drawing.Point(8, 30);
+            this.progressBarAutoApply.Name = "progressBarAutoApply";
+            this.progressBarAutoApply.Size = new System.Drawing.Size(264, 23);
+            this.progressBarAutoApply.TabIndex = 1;
+            // 
+            // lblAutoApplyStatus
+            // 
+            this.lblAutoApplyStatus.AutoSize = true;
+            this.lblAutoApplyStatus.Location = new System.Drawing.Point(8, 8);
+            this.lblAutoApplyStatus.Name = "lblAutoApplyStatus";
+            this.lblAutoApplyStatus.Size = new System.Drawing.Size(100, 13);
+            this.lblAutoApplyStatus.TabIndex = 0;
+            this.lblAutoApplyStatus.Text = "Auto-Apply Status";
+            // 
             // cbMatchWhole
             // 
             this.cbMatchWhole.AutoSize = true;
@@ -1311,6 +1429,7 @@ namespace TranslationApp
             this.leftColumn.Controls.Add(this.lLanguage);
             this.leftColumn.Controls.Add(this.panel1);
             this.leftColumn.Controls.Add(this.cbLanguage);
+
             this.leftColumn.Dock = System.Windows.Forms.DockStyle.Left;
             this.leftColumn.Location = new System.Drawing.Point(0, 24);
             this.leftColumn.Name = "leftColumn";
@@ -1349,6 +1468,7 @@ namespace TranslationApp
             this.Controls.Add(this.splitter1);
             this.Controls.Add(this.leftColumn);
             this.Controls.Add(this.menuStripMain);
+            this.Controls.Add(this.panelAutoApplyProgress);
             this.KeyPreview = true;
             this.MainMenuStrip = this.menuStripMain;
             this.Name = "fMain";
@@ -1381,6 +1501,10 @@ namespace TranslationApp
             ((System.ComponentModel.ISupportInitialize)(this.textPreview1)).EndInit();
             this.leftColumn.ResumeLayout(false);
             this.leftColumn.PerformLayout();
+            this.panelRM2Settings.ResumeLayout(false);
+            this.panelRM2Settings.PerformLayout();
+            this.panelAutoApplyProgress.ResumeLayout(false);
+            this.panelAutoApplyProgress.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -1418,6 +1542,9 @@ namespace TranslationApp
         private System.Windows.Forms.ToolStripMenuItem hexToJapaneseToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem tsTORExtract;
         private System.Windows.Forms.ToolStripMenuItem searchJapaneseToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem tsRM2;
+        private System.Windows.Forms.ToolStripMenuItem tsRM2Settings;
+        private System.Windows.Forms.ToolStripMenuItem tsRM2ForceFreshISO;
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.CheckBox cbProof;
         private System.Windows.Forms.CheckBox cbToDo;
@@ -1499,6 +1626,15 @@ namespace TranslationApp
         private System.Windows.Forms.FontDialog fontDialog1;
         private System.Windows.Forms.TextBox tbMax;
         private System.Windows.Forms.TextBox tbWrap;
+        private System.Windows.Forms.Panel panelRM2Settings;
+        private System.Windows.Forms.Label lblRM2Settings;
+        private System.Windows.Forms.ComboBox cbRM2Options;
+
+        // Auto-apply progress controls
+        private System.Windows.Forms.Panel panelAutoApplyProgress;
+        private System.Windows.Forms.ProgressBar progressBarAutoApply;
+        private System.Windows.Forms.Label lblAutoApplyStatus;
+
     }
 }
 

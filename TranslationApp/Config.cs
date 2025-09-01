@@ -13,11 +13,32 @@ namespace TranslationApp
         private string _isoPath;
         private string _lastFolderPath;
         private DateTime _lastTimeLoaded;
+        private bool _showAutoLoadMessage;
+        private string _projectRootPath;
+        private string _pythonPath;
+        
+        // Last used file selection properties
+        private string _lastUsedFileType;
+        private string _lastUsedFileName;
+        private string _lastUsedSection;
+        
+        // Last used status filter properties
+        private bool _lastUsedToDo;
+        private bool _lastUsedProof;
+        private bool _lastUsedEditing;
+        private bool _lastUsedProblematic;
+        private bool _lastUsedDone;
 
-        public GameConfig() { }
+        public GameConfig()
+        {
+            _lastTimeLoaded = DateTime.Now;
+            _showAutoLoadMessage = true; // Default to showing auto-load message
+        }
         public GameConfig(string _Game)
         {
             _game = _Game;
+            _lastTimeLoaded = DateTime.Now; // Initialize with current time
+            _showAutoLoadMessage = true; // Default to showing auto-load message
         }
         public string Game
         {
@@ -43,6 +64,121 @@ namespace TranslationApp
         {
             get => _lastTimeLoaded;
             set => _lastTimeLoaded = value;
+        }
+        public bool ShowAutoLoadMessage
+        {
+            get => _showAutoLoadMessage;
+            set => _showAutoLoadMessage = value;
+        }
+        public string ProjectRootPath
+        {
+            get
+            {
+                // If project root path is not set, derive it from folder path
+                if (string.IsNullOrEmpty(_projectRootPath) && !string.IsNullOrEmpty(_folderPath))
+                {
+                    // Go up one level from 2_translated to get to project root
+                    var folderPath = new DirectoryInfo(_folderPath);
+                    if (folderPath.Name == "2_translated" && folderPath.Parent != null)
+                    {
+                        _projectRootPath = folderPath.Parent.FullName;
+                    }
+                }
+                return _projectRootPath;
+            }
+            set => _projectRootPath = value;
+        }
+        public string PythonPath
+        {
+            get => _pythonPath;
+            set => _pythonPath = value;
+        }
+        
+        // Last used file selection properties
+        public string LastUsedFileType
+        {
+            get => _lastUsedFileType;
+            set => _lastUsedFileType = value;
+        }
+        
+        public string LastUsedFileName
+        {
+            get => _lastUsedFileName;
+            set => _lastUsedFileName = value;
+        }
+        
+        public string LastUsedSection
+        {
+            get => _lastUsedSection;
+            set => _lastUsedSection = value;
+        }
+        
+        // Last used status filter properties
+        public bool LastUsedToDo
+        {
+            get => _lastUsedToDo;
+            set => _lastUsedToDo = value;
+        }
+        
+        public bool LastUsedProof
+        {
+            get => _lastUsedProof;
+            set => _lastUsedProof = value;
+        }
+        
+        public bool LastUsedEditing
+        {
+            get => _lastUsedEditing;
+            set => _lastUsedEditing = value;
+        }
+        
+        public bool LastUsedProblematic
+        {
+            get => _lastUsedProblematic;
+            set => _lastUsedProblematic = value;
+        }
+        
+        public bool LastUsedDone
+        {
+            get => _lastUsedDone;
+            set => _lastUsedDone = value;
+        }
+
+        // Auto-apply properties
+        private bool _autoApplyEnabled;
+        private Dictionary<string, DateTime> _lastXmlProcessed;
+        private Dictionary<string, DateTime> _lastArcProcessed;
+        private List<string> _failedXmlFiles;
+        private DateTime _lastIsoReplacement;
+
+        public bool AutoApplyEnabled
+        {
+            get => _autoApplyEnabled;
+            set => _autoApplyEnabled = value;
+        }
+
+        public Dictionary<string, DateTime> LastXmlProcessed
+        {
+            get => _lastXmlProcessed ?? (_lastXmlProcessed = new Dictionary<string, DateTime>());
+            set => _lastXmlProcessed = value;
+        }
+
+        public Dictionary<string, DateTime> LastArcProcessed
+        {
+            get => _lastArcProcessed ?? (_lastArcProcessed = new Dictionary<string, DateTime>());
+            set => _lastArcProcessed = value;
+        }
+
+        public List<string> FailedXmlFiles
+        {
+            get => _failedXmlFiles ?? (_failedXmlFiles = new List<string>());
+            set => _failedXmlFiles = value;
+        }
+
+        public DateTime LastIsoReplacement
+        {
+            get => _lastIsoReplacement;
+            set => _lastIsoReplacement = value;
         }
 
     }

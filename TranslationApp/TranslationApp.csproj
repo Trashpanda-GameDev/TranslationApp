@@ -105,6 +105,19 @@
     <Compile Include="fSetup.Designer.cs">
       <DependentUpon>fSetup.cs</DependentUpon>
     </Compile>
+    <Compile Include="fRM2Settings.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="fRM2Settings.Designer.cs">
+      <DependentUpon>fRM2Settings.cs</DependentUpon>
+    </Compile>
+    <Compile Include="fRM2Progress.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="fRM2Progress.Designer.cs">
+      <DependentUpon>fRM2Progress.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AutoApplyService.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TextPreview.cs">

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -28,6 +29,13 @@ namespace TranslationApp
         private int nbJapaneseDuplicate;
         private static string windowName;
         FormWindowState LastWindowState = FormWindowState.Minimized;
+
+        // Auto-apply service
+        private AutoApplyService autoApplyService;
+
+        // RM2 Menu Items
+        private System.Windows.Forms.ToolStripMenuItem tsRM2ApplyTranslations;
+        private System.Windows.Forms.ToolStripMenuItem tsRM2ReplaceAllFiles;
 
         private readonly string MULTIPLE_STATUS = "<Multiple Status>";
         private readonly string MULTIPLE_SELECT = "<Multiple Entries Selected>";
@@ -79,6 +87,124 @@ namespace TranslationApp
             config = new Config();
             config.Load();
             PackingAssistant = new PackingProject();
+
+
+
+            // Set initial visibility state
+            UpdateOptionsVisibility();
+
+            // Automatically load the last used project on startup
+            AutoLoadLastProject();
+        }
+
+        private void AutoLoadLastProject()
+        {
+            try
+            {
+                // Check if we have any saved game configurations
+                if (config?.GamesConfigList != null && config.GamesConfigList.Count > 0)
+                {
+                    // Find the most recently used project by timestamp
+                    var lastUsedProject = config.GamesConfigList
+                        .Where(g => !string.IsNullOrEmpty(g.FolderPath) && Directory.Exists(g.FolderPath))
+                        .OrderByDescending(g => g.LastTimeLoaded) // Order by most recently accessed
+                        .FirstOrDefault();
+
+                    if (lastUsedProject != null)
+                    {
+                        // Find the corresponding ProjectEntry
+                        ProjectEntry? projectEntry = null;
+                        foreach (var project in Projects)
+                        {
+                            if (project.shortName == lastUsedProject.Game)
+                            {
+                                projectEntry = project;
+                                break;
+                            }
+                        }
+                        
+                        if (projectEntry.HasValue)
+                        {
+                            // Load the last used project
+                            LoadLastFolder(projectEntry.Value.shortName);
+                            
+                            // Update UI if project was successfully loaded
+                            if (Project != null && Project.CurrentFolder != null)
+                            {
+                                textPreview1.ChangeImage(projectEntry.Value.shortName);
+                                UpdateTitle(projectEntry.Value.fullName);
+
+                                // add listener to shown event
+                                this.Shown += (s, e) => {
+                                    ShowAutoLoadDialog(projectEntry.Value.fullName, lastUsedProject.FolderPath, lastUsedProject);
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the error but don't crash the application
+                System.Diagnostics.Debug.WriteLine($"Auto-load error: {ex.Message}");
+                // Continue with normal startup - user can manually load projects
+            }
+        }
+
+        private void ShowAutoLoadDialog(string projectName, string folderPath, GameConfig gameConfig)
+        {
+            // Check if user has chosen not to show this message
+            if (!gameConfig.ShowAutoLoadMessage)
+            {
+                return;
+            }
+
+            // Create custom dialog with checkbox
+            using (var form = new Form())
+            {
+                form.Text = "Auto-loaded";
+                form.Size = new System.Drawing.Size(400, 200);
+                form.StartPosition = FormStartPosition.CenterParent;
+                form.FormBorderStyle = FormBorderStyle.FixedDialog;
+                form.MaximizeBox = false;
+                form.MinimizeBox = false;
+
+                var label = new Label
+                {
+                    Text = $"Project: \n{projectName}\n\nFolder: \n{folderPath}",
+                    Location = new System.Drawing.Point(20, 20),
+                    Size = new System.Drawing.Size(350, 80),
+                    AutoSize = false
+                };
+
+                var checkBox = new CheckBox
+                {
+                    Text = "Don't show this message again",
+                    Location = new System.Drawing.Point(20, 110),
+                    Size = new System.Drawing.Size(200, 20)
+                };
+
+                var button = new Button
+                {
+                    Text = "OK",
+                    Location = new System.Drawing.Point(300, 130),
+                    Size = new System.Drawing.Size(75, 23),
+                    DialogResult = DialogResult.OK
+                };
+
+                form.Controls.Add(label);
+                form.Controls.Add(checkBox);
+                form.Controls.Add(button);
+
+                form.ShowDialog();
+
+                // Save the user's preference
+                if (checkBox.Checked)
+                {
+                    gameConfig.ShowAutoLoadMessage = false;
+                    config.Save();
+                }
+            }
         }
 
         private void PopulateProjectTypes()
@@ -98,22 +224,36 @@ namespace TranslationApp
             translationToolStripMenuItem.DropDownItems.AddRange(items.ToArray());
         }
 
-        private void LoadNewFolder_Click(object sender, EventArgs e)
+         private void LoadNewFolder_Click(object sender, EventArgs e)
         {
+            var previousProject = Project;
+
             ToolStripMenuItem clickedItem = (ToolStripMenuItem)sender;
             ProjectEntry pe = (ProjectEntry)clickedItem.Tag;
             LoadProjectFolder(pe.shortName, pe.folder);
-            textPreview1.ChangeImage(pe.shortName);
-            UpdateTitle(pe.fullName);
+            
+            // Only update UI if a new project was actually loaded
+            if (Project != null && Project.CurrentFolder != null && Project != previousProject)
+            {
+                textPreview1.ChangeImage(pe.shortName);
+                UpdateTitle(pe.fullName);
+            }
         }
 
         private void LoadLastFolder_Click(object sender, EventArgs e)
         {
+            var previousProject = Project;
+
             ToolStripMenuItem clickedItem = (ToolStripMenuItem)sender;
             ProjectEntry pe = (ProjectEntry)clickedItem.Tag;
             LoadLastFolder(pe.shortName);
-            textPreview1.ChangeImage(pe.shortName);
-            UpdateTitle(pe.fullName);
+            
+            // Only update UI if project was successfully loaded
+            if (Project != null && Project.CurrentFolder != null && Project != previousProject)
+            {
+                textPreview1.ChangeImage(pe.shortName);
+                UpdateTitle(pe.fullName);
+            }
         }
 
         private void openFolderToolStripMenuItem_Click(object sender, EventArgs e)
@@ -578,14 +718,32 @@ namespace TranslationApp
         private void bSave_Click(object sender, EventArgs e)
         {
             int count = 0;
+            var savedFiles = new List<string>();
+            
             foreach (var folder in Project.XmlFolders)
             {
                 count += folder.SaveChanged();
+                
+                // Collect saved file paths
+                foreach (var file in folder.XMLFiles)
+                {
+                    if (file.needsSave == false && !string.IsNullOrEmpty(file.FilePath))
+                    {
+                        savedFiles.Add(file.FilePath);
+                    }
+                }
             }
+            
             MessageBox.Show($"{count} XML files has been written to disk");
 
             UpdateDisplayedEntries();
             UpdateStatusData();
+
+            // Trigger auto-apply for saved files
+            if (savedFiles.Count > 0)
+            {
+                TriggerAutoApply(savedFiles);
+            }
         }
 
 
@@ -607,35 +765,133 @@ namespace TranslationApp
 
         public string GetFolderPath()
         {
-            using (var fbd = new FolderBrowserDialog())
+            // Use modern Windows API folder picker for better user experience
+            try
             {
-                if (fbd.ShowDialog() == DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath))
-                    return fbd.SelectedPath;
-
-                return "";
+                return GetModernWindowsFolderPicker();
+            }
+            catch
+            {
+                // Fallback to Windows Forms FolderBrowserDialog
+                return GetFallbackFolderPicker();
             }
         }
 
-        private void LoadProjectFolder(string gameName, string path)
+        private string GetModernWindowsFolderPicker()
         {
+            try
+            {
+                // Try to use the modern Windows Vista+ folder picker
+                using (var openFileDialog = new OpenFileDialog())
+                {
+                    openFileDialog.ValidateNames = false;
+                    openFileDialog.CheckFileExists = false;
+                    openFileDialog.CheckPathExists = true;
+                    openFileDialog.FileName = "Select Folder";
+                    openFileDialog.Title = "Select your project folder";
+                    
+                    // Set initial directory to parent of last used path (go up one level)
+                    if (!string.IsNullOrEmpty(config?.GamesConfigList?.LastOrDefault()?.LastFolderPath))
+                    {
+                        string lastPath = config.GamesConfigList.Last().LastFolderPath;
+                        openFileDialog.InitialDirectory = lastPath;
+                    }
+                    else
+                    {
+                        openFileDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyComputer);
+                    }
+
+                    // Show the dialog and handle the result
+                    DialogResult result = openFileDialog.ShowDialog();
+                    if (result == DialogResult.OK)
+                    {
+                        string folderPath = Path.GetDirectoryName(openFileDialog.FileName);
+                        if (!string.IsNullOrEmpty(folderPath) && Directory.Exists(folderPath))
+                            return folderPath;
+                    }
+                    // If user cancelled (DialogResult.Cancel), return empty string
+                    return "";
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Modern folder picker error: {ex.Message}");
+                // Fall through to fallback method
+            }
+
+            return "";
+        }
+
+        private string GetFallbackFolderPicker()
+        {
+            try
+            {
+                using (var fbd = new FolderBrowserDialog())
+                {
+                    fbd.Description = "Select your project folder";
+                    
+                    // Show the dialog and handle the result
+                    DialogResult result = fbd.ShowDialog();
+                    if (result == DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath))
+                    {
+                        // Verify the selected path actually exists
+                        if (Directory.Exists(fbd.SelectedPath))
+                            return fbd.SelectedPath;
+                    }
+                    // If user cancelled (DialogResult.Cancel), return empty string
+                    return "";
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Fallback folder picker error: {ex.Message}");
+            }
+
+            return "";
+        }
+
+         private void LoadProjectFolder(string gameName, string path)
+        {
+            this.gameName = gameName; // Assign to class field
             lbEntries.BorderStyle = BorderStyle.FixedSingle;
-            var loadedFolder = TryLoadFolder(Path.Combine(GetFolderPath(), path), gameName.Equals("NDX"));
+            
+            // Get the folder path from user
+            string selectedFolder = GetFolderPath();
+            
+            // Check if user cancelled the folder picker
+            if (string.IsNullOrEmpty(selectedFolder))
+            {
+                // User cancelled, don't proceed
+                return;
+            }
+            
+            var loadedFolder = TryLoadFolder(Path.Combine(selectedFolder, path), gameName.Equals("NDX"));
+            
+            // Check if folder loading failed
+            if (loadedFolder == null)
+            {
+                // Folder loading failed, don't proceed
+                return;
+            }
+            
             gameConfig = config.GamesConfigList.Where(x => x.Game == gameName).FirstOrDefault();
 
             if (gameConfig == null)
             {
-                GameConfig newConfig = new GameConfig();
+                GameConfig newConfig = new GameConfig(gameName);
                 newConfig.FolderPath = loadedFolder;
-                newConfig.LastFolderPath = loadedFolder;
+                newConfig.LastFolderPath = selectedFolder; // Store the parent folder, not the subfolder
                 newConfig.Game = gameName;
+                newConfig.LastTimeLoaded = DateTime.Now; // Track when this project was accessed
                 config.GamesConfigList.Add(newConfig);
                 gameConfig = config.GetGameConfig(gameName);
             }
             else
             {
                 gameConfig.FolderPath = loadedFolder;
-                gameConfig.LastFolderPath = loadedFolder;
+                gameConfig.LastFolderPath = selectedFolder; // Store the parent folder, not the subfolder
                 gameConfig.Game = gameName;
+                gameConfig.LastTimeLoaded = DateTime.Now; // Update access timestamp
             }
 
             config.Save();
@@ -643,12 +899,15 @@ namespace TranslationApp
         }
         private void LoadLastFolder(string gameName)
         {
-            var myConfig = config.GetGameConfig(gameName);
-            if (myConfig != null)
+            this.gameName = gameName; // Assign to class field
+            var gameConfig = config.GetGameConfig(gameName);
+            if (gameConfig != null)
             {
-                TryLoadFolder(config.GetGameConfig(gameName).FolderPath, false);
-                gameConfig = myConfig;
+                TryLoadFolder(gameConfig.FolderPath, false);
+                gameConfig.LastTimeLoaded = DateTime.Now; // Update access timestamp
+                config.Save(); // Save the updated timestamp
                 UpdateOptionsVisibility();
+                
             }
             else
                 MessageBox.Show("The game you are trying to load is not inside the configuration file,\nplease load a new folder.");
@@ -700,7 +959,15 @@ namespace TranslationApp
 
             ChangeEnabledProp(true);
             EnableEventHandlers();
-            cbFileType.Text = "___";
+            
+            // Restore last used file selections if available
+            RestoreLastUsedFileSelections();
+            
+            // Save initial status filter states if this is the first time loading this project
+            SaveInitialStatusFilterStates();
+
+            // Initialize auto-apply service if this is an RM2 project
+            InitializeAutoApplyService();
         }
 
         private void DisableEventHandlers()
@@ -735,6 +1002,9 @@ namespace TranslationApp
             {
                 Project.SetCurrentFolder(cbFileType.SelectedItem.ToString());
                 List<string> filelist = Project.CurrentFolder.FileList();
+                
+                // Save the current file type selection
+                SaveCurrentFileSelections();
 
                 if (cbFileType.SelectedItem.ToString().Equals("Menu", StringComparison.InvariantCultureIgnoreCase))
                 {
@@ -788,6 +1058,9 @@ namespace TranslationApp
                 cbProblematic.Checked ? "Problematic" : string.Empty,
                 cbDone.Checked ? "Done" : string.Empty
             };
+            
+            System.Diagnostics.Debug.WriteLine($"UpdateDisplayedEntries - Status filters: ToDo={cbToDo.Checked}, Proof={cbProof.Checked}, Editing={cbEditing.Checked}, Problematic={cbProblematic.Checked}, Done={cbDone.Checked}");
+            System.Diagnostics.Debug.WriteLine($"UpdateDisplayedEntries - Checked filters: {string.Join(", ", checkedFilters.Where(f => !string.IsNullOrEmpty(f)))}");
             if (tcType.Controls[tcType.SelectedIndex].Text == "Text")
             {
                 CurrentTextList = Project.CurrentFolder.CurrentFile.CurrentSection.Entries.Where(e => checkedFilters.Contains(e.Status)).ToList();
@@ -832,6 +1105,10 @@ namespace TranslationApp
         {
             bool TORValid = config.IsPackingVisibility("TOR");
             tsTORPacking.Enabled = tsTORMakeIso.Enabled = tsTORExtract.Enabled = TORValid;
+            
+            // Show RM2 menu only when RM2 project is loaded
+            bool RM2Valid = gameName == "RM2";
+            tsRM2.Visible = RM2Valid;
         }
 
         private void UpdateStatusData()
@@ -863,6 +1140,9 @@ namespace TranslationApp
             if (cbFileList.SelectedIndex != -1)
             {
                 Project.CurrentFolder.SetCurrentFile(cbFileList.SelectedIndex);
+                
+                // Save the current file selections
+                SaveCurrentFileSelections();
 
                 string filetype = cbFileType.SelectedItem.ToString();
                 if (filetype.Equals("Menu", StringComparison.InvariantCultureIgnoreCase))
@@ -1050,26 +1330,31 @@ namespace TranslationApp
         private void cbToDo_CheckedChanged(object sender, EventArgs e)
         {
             FilterEntryList();
+            SaveCurrentFileSelections();
         }
 
         private void cbProof_CheckedChanged(object sender, EventArgs e)
         {
             FilterEntryList();
+            SaveCurrentFileSelections();
         }
 
         private void cbDone_CheckedChanged(object sender, EventArgs e)
         {
             FilterEntryList();
+            SaveCurrentFileSelections();
         }
 
         private void cbProblematic_CheckedChanged(object sender, EventArgs e)
         {
             FilterEntryList();
+            SaveCurrentFileSelections();
         }
 
         private void cbInReview_CheckedChanged(object sender, EventArgs e)
         {
             FilterEntryList();
+            SaveCurrentFileSelections();
         }
 
         private void FilterEntryList()
@@ -1099,8 +1384,280 @@ namespace TranslationApp
             tbSectionName.Text = cbSections.Text;
             UpdateDisplayedEntries();
             UpdateStatusData();
+            
+            // Save the current file selections
+            SaveCurrentFileSelections();
         }
-
+        
+        /// <summary>
+        /// Saves the current file selections (file type, file name, section) and status filters to the game config
+        /// </summary>
+        private void SaveCurrentFileSelections()
+        {
+            try
+            {
+                if (Project?.CurrentFolder?.CurrentFile != null && !string.IsNullOrEmpty(gameName))
+                {
+                    var gameConfig = config.GetGameConfig(gameName);
+                    if (gameConfig != null)
+                    {
+                        // Save current file selections
+                        gameConfig.LastUsedFileType = cbFileType.Text;
+                        gameConfig.LastUsedFileName = cbFileList.Text;
+                        gameConfig.LastUsedSection = cbSections.Text;
+                        
+                        // Save current status filter states
+                        gameConfig.LastUsedToDo = cbToDo.Checked;
+                        gameConfig.LastUsedProof = cbProof.Checked;
+                        gameConfig.LastUsedEditing = cbEditing.Checked;
+                        gameConfig.LastUsedProblematic = cbProblematic.Checked;
+                        gameConfig.LastUsedDone = cbDone.Checked;
+                        
+                        // Save the configuration
+                        config.Save();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't crash the application
+                System.Diagnostics.Debug.WriteLine($"Error saving file selections: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Restores the last used file selections (file type, file name, section) and status filters from the game config
+        /// </summary>
+        private void RestoreLastUsedFileSelections()
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(gameName))
+                {
+                    var gameConfig = config.GetGameConfig(gameName);
+                    if (gameConfig != null && !string.IsNullOrEmpty(gameConfig.LastUsedFileType))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Restoring file selections: {gameConfig.LastUsedFileType} -> {gameConfig.LastUsedFileName} -> {gameConfig.LastUsedSection}");
+                        
+                        // Temporarily disable event handlers to prevent saving during restoration
+                        DisableEventHandlers();
+                        
+                        // Step 1: Restore file type and manually trigger the formatting logic
+                        if (cbFileType.Items.Contains(gameConfig.LastUsedFileType))
+                        {
+                            // Set the file type
+                            cbFileType.Text = gameConfig.LastUsedFileType;
+                            
+                            // Manually trigger the folder change and formatting logic
+                            Project.SetCurrentFolder(gameConfig.LastUsedFileType);
+                            
+                            // Manually populate and format the file list (same logic as cbFileType_TextChanged)
+                            List<string> filelist = Project.CurrentFolder.FileList();
+                            if (gameConfig.LastUsedFileType.Equals("Menu", StringComparison.InvariantCultureIgnoreCase))
+                            {
+                                cbFileList.DataSource = filelist;
+                            }
+                            else if (gameConfig.LastUsedFileType == "Skits")
+                            {
+                                List<XMLEntry> names = getSkitNameList();
+                                if (names.Count != 1157)
+                                {
+                                    cbFileList.DataSource = filelist.Select(x => x + ".xml").ToList();
+                                }
+                                else
+                                {
+                                    for (int i = 0, j = 0; i < filelist.Count; i++)
+                                    {
+                                        if (((i > 1072) && (i < 1082)) || ((i > 1092) && (i < 1099)))
+                                        {
+                                            j++;
+                                            filelist[i] += " | NO NAME";
+                                            continue;
+                                        }
+                                        filelist[i] = filelist[i] + " | " + (names[i - j].EnglishText ?? names[i - j].JapaneseText);
+                                    }
+                                    cbFileList.DataSource = filelist;
+                                }
+                            }
+                            else
+                            {
+                                for (int i = 0; i < filelist.Count; i++)
+                                {
+                                    string fname = Project.CurrentFolder.XMLFiles[i].FriendlyName ?? "NO NAME";
+                                    filelist[i] = filelist[i] + " | " + fname;
+                                }
+                                cbFileList.DataSource = filelist;
+                            }
+                            
+                            // Let the UI update and then restore file name
+                            this.BeginInvoke(new Action(() =>
+                            {
+                                // Step 2: Restore file name
+                                if (cbFileList.Items.Contains(gameConfig.LastUsedFileName))
+                                {
+                                    cbFileList.Text = gameConfig.LastUsedFileName;
+                                    
+                                    // Manually set the current file and populate sections
+                                    int fileIndex = cbFileList.Items.IndexOf(gameConfig.LastUsedFileName);
+                                    if (fileIndex >= 0)
+                                    {
+                                        Project.CurrentFolder.SetCurrentFile(fileIndex);
+                                        cbSections.DataSource = Project.CurrentFolder.CurrentFile.GetSectionNames();
+                                        
+                                        // Update the current text and speaker lists for the restored file
+                                        CurrentTextList = Project.CurrentFolder.CurrentFile.CurrentSection.Entries;
+                                        CurrentSpeakerList = Project.CurrentFolder.CurrentFile.Speakers;
+                                    }
+                                    
+                                    // Let the UI update and then restore section
+                                    this.BeginInvoke(new Action(() =>
+                                    {
+                                        // Step 3: Restore section
+                                        if (cbSections.Items.Contains(gameConfig.LastUsedSection))
+                                        {
+                                            cbSections.Text = gameConfig.LastUsedSection;
+                                            
+                                            // Manually set the current section in the project
+                                            Project.CurrentFolder.CurrentFile.SetSection(gameConfig.LastUsedSection);
+                                            
+                                            // Update the current text and speaker lists
+                                            CurrentTextList = Project.CurrentFolder.CurrentFile.CurrentSection.Entries;
+                                            CurrentSpeakerList = Project.CurrentFolder.CurrentFile.Speakers;
+                                        }
+                                        
+                                        // Step 4: Restore status filter states
+                                        RestoreStatusFilterStates(gameConfig);
+                                        
+                                        // Step 5: Ensure current lists are properly initialized
+                                        if (Project?.CurrentFolder?.CurrentFile?.CurrentSection != null)
+                                        {
+                                            CurrentTextList = Project.CurrentFolder.CurrentFile.CurrentSection.Entries;
+                                            CurrentSpeakerList = Project.CurrentFolder.CurrentFile.Speakers;
+                                        }
+                                        
+                                        // Re-enable event handlers
+                                        EnableEventHandlers();
+                                        
+                                        // Now update the display with the restored filters applied
+                                        UpdateDisplayedEntries();
+                                        UpdateStatusData();
+                                    }));
+                                }
+                                else
+                                {
+                                    // Re-enable event handlers if file name not found
+                                    EnableEventHandlers();
+                                    UpdateDisplayedEntries();
+                                    UpdateStatusData();
+                                }
+                            }));
+                        }
+                        else
+                        {
+                            // Re-enable event handlers if file type not found
+                            EnableEventHandlers();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't crash the application
+                System.Diagnostics.Debug.WriteLine($"Error restoring file selections: {ex.Message}");
+                
+                // Make sure event handlers are re-enabled even if there's an error
+                EnableEventHandlers();
+            }
+                }
+        
+        /// <summary>
+        /// Saves the initial status filter states when a project is first loaded
+        /// </summary>
+        private void SaveInitialStatusFilterStates()
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(gameName))
+                {
+                    var gameConfig = config.GetGameConfig(gameName);
+                    if (gameConfig != null)
+                    {
+                        // Only save if we don't have saved status filter states yet
+                        if (string.IsNullOrEmpty(gameConfig.LastUsedFileType))
+                        {
+                            // Save current status filter states as initial values
+                            gameConfig.LastUsedToDo = cbToDo.Checked;
+                            gameConfig.LastUsedProof = cbProof.Checked;
+                            gameConfig.LastUsedEditing = cbEditing.Checked;
+                            gameConfig.LastUsedProblematic = cbProblematic.Checked;
+                            gameConfig.LastUsedDone = cbDone.Checked;
+                            
+                            // Save the configuration
+                            config.Save();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't crash the application
+                System.Diagnostics.Debug.WriteLine($"Error saving initial status filter states: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Restores the last used status filter states from the game config
+        /// </summary>
+        private void RestoreStatusFilterStates(GameConfig gameConfig)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"Restoring status filters: ToDo={gameConfig.LastUsedToDo}, Proof={gameConfig.LastUsedProof}, Editing={gameConfig.LastUsedEditing}, Problematic={gameConfig.LastUsedProblematic}, Done={gameConfig.LastUsedDone}");
+                
+                // Temporarily disable event handlers to prevent saving during restoration
+                cbToDo.CheckedChanged -= cbToDo_CheckedChanged;
+                cbProof.CheckedChanged -= cbProof_CheckedChanged;
+                cbDone.CheckedChanged -= cbDone_CheckedChanged;
+                cbProblematic.CheckedChanged -= cbProblematic_CheckedChanged;
+                cbEditing.CheckedChanged -= cbInReview_CheckedChanged;
+                
+                // Restore status filter states
+                cbToDo.Checked = gameConfig.LastUsedToDo;
+                cbProof.Checked = gameConfig.LastUsedProof;
+                cbEditing.Checked = gameConfig.LastUsedEditing;
+                cbProblematic.Checked = gameConfig.LastUsedProblematic;
+                cbDone.Checked = gameConfig.LastUsedDone;
+                
+                // Re-enable event handlers
+                cbToDo.CheckedChanged += cbToDo_CheckedChanged;
+                cbProof.CheckedChanged += cbProof_CheckedChanged;
+                cbDone.CheckedChanged += cbDone_CheckedChanged;
+                cbProblematic.CheckedChanged += cbProblematic_CheckedChanged;
+                cbEditing.CheckedChanged += cbInReview_CheckedChanged;
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't crash the application
+                System.Diagnostics.Debug.WriteLine($"Error restoring status filter states: {ex.Message}");
+                
+                // Make sure event handlers are re-enabled even if there's an error
+                cbToDo.CheckedChanged += cbToDo_CheckedChanged;
+                cbProof.CheckedChanged += cbProof_CheckedChanged;
+                cbDone.CheckedChanged += cbDone_CheckedChanged;
+                cbProblematic.CheckedChanged += cbProblematic_CheckedChanged;
+                cbEditing.CheckedChanged += cbInReview_CheckedChanged;
+            }
+        }
+        
+        /// <summary>
+        /// Handles keyboard shortcuts for the main form
+        /// Available shortcuts:
+        /// - Ctrl+S: Save current file and trigger auto-apply
+        /// - Ctrl+Up/Down: Navigate through entries
+        /// - Ctrl+Alt+Up/Down: Navigate through file list
+        /// - Ctrl+L: Copy Japanese text to English field
+        /// - Ctrl+E: Toggle empty entries filter
+        /// </summary>
         private void fMain_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Control)
@@ -1173,7 +1730,21 @@ namespace TranslationApp
                             tbEnglishText.Text = tbJapaneseText.Text;
                         break;
                     case Keys.S:
-                        bSaveAll.PerformClick();
+                        // Save current file and trigger auto-apply
+                        if (Project?.CurrentFolder?.CurrentFile != null)
+                        {
+                            Project.CurrentFolder.CurrentFile.SaveToDisk();
+                            UpdateDisplayedEntries();
+                            UpdateStatusData();
+                            
+                            // Trigger auto-apply for the current file
+                            TriggerAutoApply(new List<string> { Project.CurrentFolder.CurrentFile.FilePath });
+                        }
+                        else
+                        {
+                            // Fallback to save all if no current file
+                            bSaveAll.PerformClick();
+                        }
                         break;
                     case Keys.E:
                         if (cbEmpty.Enabled)
@@ -1382,6 +1953,9 @@ namespace TranslationApp
             Project.CurrentFolder.CurrentFile.SaveToDisk();
             UpdateDisplayedEntries();
             UpdateStatusData();
+
+            // Trigger auto-apply if enabled
+            TriggerAutoApply(new List<string> { Project.CurrentFolder.CurrentFile.FilePath });
         }
         private void saveCurrentFileToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -1398,6 +1972,20 @@ namespace TranslationApp
             MessageBox.Show("Text has been written to the XML files");
             UpdateDisplayedEntries();
             UpdateStatusData();
+
+            // Trigger auto-apply for all saved files
+            var allXmlFiles = new List<string>();
+            foreach (var folder in Project.XmlFolders)
+            {
+                foreach (var file in folder.XMLFiles)
+                {
+                    if (!string.IsNullOrEmpty(file.FilePath))
+                    {
+                        allXmlFiles.Add(file.FilePath);
+                    }
+                }
+            }
+            TriggerAutoApply(allXmlFiles);
         }
         private void reloadAllToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -1475,6 +2063,111 @@ namespace TranslationApp
         private void importFromCsvToolStripMenuItem_Click(object sender, EventArgs e)
         {
             MessageBox.Show("Not implemented yet");
+        }
+
+        #region Auto-Apply Service Event Handlers
+
+        private void AutoApplyService_ProgressChanged(object sender, AutoApplyProgressEventArgs e)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => AutoApplyService_ProgressChanged(sender, e)));
+                return;
+            }
+
+            // Update progress bar
+            progressBarAutoApply.Value = e.Percentage;
+            lblAutoApplyStatus.Text = e.Message;
+            panelAutoApplyProgress.Visible = true;
+        }
+
+        private void AutoApplyService_ProcessingCompleted(object sender, AutoApplyCompletedEventArgs e)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => AutoApplyService_ProcessingCompleted(sender, e)));
+                return;
+            }
+
+            // Hide progress bar
+            panelAutoApplyProgress.Visible = false;
+
+            if (e.Success)
+            {
+                // Show success message
+                if (e.ProcessedXmlFiles > 0)
+                {
+                    MessageBox.Show($"Auto-apply completed successfully!\n\nProcessed {e.ProcessedXmlFiles} XML file(s)\nUpdated {e.ProcessedArcFiles} ARC file(s)", 
+                        "Auto-Apply Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            else
+            {
+                // Show error message
+                MessageBox.Show($"Auto-apply failed: {e.ErrorMessage}", 
+                    "Auto-Apply Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Initializes the auto-apply service for RM2 projects
+        /// </summary>
+        private void InitializeAutoApplyService()
+        {
+            try
+            {
+                // Check if this is an RM2 project
+                if (Project != null && Project.ProjectPath.Contains("RM2"))
+                {
+                    var rm2Config = config.GetGameConfig("RM2");
+                    if (rm2Config != null)
+                    {
+                        autoApplyService = new AutoApplyService(rm2Config);
+                        autoApplyService.ProgressChanged += AutoApplyService_ProgressChanged;
+                        autoApplyService.ProcessingCompleted += AutoApplyService_ProcessingCompleted;
+                    }
+                }
+                else
+                {
+                    // Clean up auto-apply service for non-RM2 projects
+                    if (autoApplyService != null)
+                    {
+                        autoApplyService.ProgressChanged -= AutoApplyService_ProgressChanged;
+                        autoApplyService.ProcessingCompleted -= AutoApplyService_ProcessingCompleted;
+                        autoApplyService = null;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to initialize auto-apply service: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Triggers the auto-apply workflow for the specified XML files
+        /// </summary>
+        private void TriggerAutoApply(List<string> xmlFiles)
+        {
+            try
+            {
+                // Check if auto-apply is enabled and we have an RM2 project
+                if (autoApplyService == null || !gameConfig?.AutoApplyEnabled == true)
+                    return;
+
+                // Check if this is an RM2 project
+                if (!Project.ProjectPath.Contains("RM2"))
+                    return;
+
+                // Start the auto-apply process
+                _ = autoApplyService.ProcessXmlFilesAsync(xmlFiles);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to trigger auto-apply: {ex.Message}");
+            }
         }
 
         private void setFileAsDoneToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1643,8 +2336,6 @@ namespace TranslationApp
             {
                 if (cbDone.Checked && cbDone.Checked && cbProblematic.Checked && cbEditing.Checked && cbToDo.Checked && cbProof.Checked)
                 {
-
-
                     EntryFound eleSelected = ListSearch[lbSearch.SelectedIndex];
                     cbFileType.Text = eleSelected.Folder;
                     cbFileList.SelectedIndex = eleSelected.FileId;
@@ -1658,16 +2349,11 @@ namespace TranslationApp
                     }
                     else
                     {
-
-
                         lbEntries.ClearSelected();
                         cbSections.Text = "All strings";
                         tcType.SelectedIndex = 0;
                         lbEntries.SelectedIndex = CurrentTextList.FindIndex(x => x.Id == eleSelected.Id);
-
                     }
-
-
                 }
             }
         }
@@ -1704,6 +2390,351 @@ namespace TranslationApp
 
             if (t)
                 tbWrap.Text = textPreview1.DoLineBreak(tbEnglishText.Text, Convert.ToInt32(tbMax.Text));
+        }
+
+        private void cbRM2Options_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (cbRM2Options.SelectedItem != null && cbRM2Options.SelectedItem.ToString() == "Settings")
+            {
+                // TODO: Implement RM2 Settings dialog/form
+                MessageBox.Show("RM2 Settings functionality will be implemented here.", "RM2 Settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void tsRM2_Click(object sender, EventArgs e)
+        {
+            // TODO: Implement RM2 menu functionality
+            MessageBox.Show("RM2 menu clicked. Add your RM2-specific functionality here.", "RM2", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void tsRM2Settings_Click(object sender, EventArgs e)
+        {
+            // Open RM2 Settings window
+            fRM2Settings settingsForm = new fRM2Settings(config);
+            settingsForm.ShowDialog();
+        }
+
+        private void tsRM2ApplyTranslations_Click(object sender, EventArgs e)
+        {
+            ExecuteRM2Script("rm2_apply.py", "Apply RM2 Translations");
+        }
+
+        private void tsRM2ReplaceAllFiles_Click(object sender, EventArgs e)
+        {
+            // First, show the better confirmation dialog (similar to ExecuteRM2Script)
+            var gameConfig = config.GetGameConfig("RM2");
+            if (gameConfig == null)
+            {
+                MessageBox.Show("Please configure the RM2 project folder path in RM2 → Settings first.", 
+                    "RM2 Project Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string scriptPath = Path.Combine(gameConfig.ProjectRootPath, "tools", "replace-all.py");
+            var result = MessageBox.Show(
+                $"This will execute replace-all.py to replace all files.\n\n" +
+                $"Script: {scriptPath}\n" +
+                $"ISO: {gameConfig.IsoPath}\n\n" +
+                "Do you want to continue?",
+                "Confirm Replace All Files",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result != DialogResult.Yes)
+            {
+                return; // User cancelled
+            }
+
+            // Then, automatically ensure the RM2_translated.iso exists in the build folder
+            if (!EnsureRM2TranslatedISOExists())
+            {
+                return; // Stop if we couldn't create the ISO
+            }
+            
+            // Finally, execute the replace-all.py script (skip confirmation since we already confirmed)
+            ExecuteRM2Script("replace-all.py", "Replace All Files", true);
+        }
+        
+        private void tsRM2ForceFreshISO_Click(object sender, EventArgs e)
+        {
+            // Always create a fresh copy of the ISO
+            if (!ForceFreshISOCopy())
+            {
+                return; // Stop if we couldn't create the ISO
+            }
+            
+            MessageBox.Show(
+                "Fresh ISO copy created successfully!\n\n" +
+                "The RM2_translated.iso has been replaced with a fresh copy of the original ISO.",
+                "Fresh ISO Copy Created",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        private bool EnsureRM2TranslatedISOExists()
+        {
+            try
+            {
+                // Get the RM2 project configuration
+                var gameConfig = config.GetGameConfig("RM2");
+                if (gameConfig == null || string.IsNullOrEmpty(gameConfig.FolderPath))
+                {
+                    MessageBox.Show("Please configure the RM2 project folder path in RM2 → Settings first.", 
+                        "RM2 Project Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                // Get the ISO path
+                if (string.IsNullOrEmpty(gameConfig.IsoPath))
+                {
+                    MessageBox.Show("Please configure the RM2 ISO path in RM2 → Settings first.", 
+                        "RM2 ISO Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                // Check if original ISO exists
+                if (!File.Exists(gameConfig.IsoPath))
+                {
+                    MessageBox.Show($"Original ISO file not found: {gameConfig.IsoPath}\n\nPlease check the ISO path in RM2 → Settings.", 
+                        "Original ISO Not Found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
+                }
+
+                // Construct the build folder path and target ISO path
+                string buildFolderPath = Path.Combine(gameConfig.ProjectRootPath, "build");
+                string targetISOPath = Path.Combine(buildFolderPath, "RM2_translated.iso");
+
+                // Check if the target ISO already exists
+                if (File.Exists(targetISOPath))
+                {
+                    // ISO already exists, we can proceed without copying
+                    return true;
+                }
+
+                // Ensure build folder exists
+                if (!Directory.Exists(buildFolderPath))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(buildFolderPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to create build folder: {ex.Message}", 
+                            "Create Folder Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return false;
+                    }
+                }
+
+                // Copy the original ISO to the build folder with progress indication
+                try
+                {
+                    // Get file size for progress calculation
+                    long fileSize = new FileInfo(gameConfig.IsoPath).Length;
+                    
+                    // Show progress dialog
+                    var progressForm = new fRM2Progress("ISO Copy", "Copying ISO file...", config, true);
+                    progressForm.ShowCopyProgress(gameConfig.IsoPath, targetISOPath, fileSize);
+                    progressForm.ShowDialog();
+                    
+                    // Check if copy was successful
+                    if (File.Exists(targetISOPath))
+                    {
+                        return true; // Successfully created, proceed silently
+                    }
+                    else
+                    {
+                        MessageBox.Show("ISO copy operation was cancelled or failed.", 
+                            "Copy Cancelled", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to copy ISO file: {ex.Message}", 
+                        "Copy Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error ensuring RM2_translated.iso exists: {ex.Message}", 
+                    "ISO Check Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+        }
+        
+        private bool ForceFreshISOCopy()
+        {
+            try
+            {
+                // Get the RM2 project configuration
+                var gameConfig = config.GetGameConfig("RM2");
+                if (gameConfig == null || string.IsNullOrEmpty(gameConfig.FolderPath))
+                {
+                    MessageBox.Show("Please configure the RM2 project folder path in RM2 → Settings first.", 
+                        "RM2 Project Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                // Get the ISO path
+                if (string.IsNullOrEmpty(gameConfig.IsoPath))
+                {
+                    MessageBox.Show("Please configure the RM2 ISO path in RM2 → Settings first.", 
+                        "RM2 ISO Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
+                }
+
+                // Check if original ISO exists
+                if (!File.Exists(gameConfig.IsoPath))
+                {
+                    MessageBox.Show($"Original ISO file not found: {gameConfig.IsoPath}\n\nPlease check the ISO path in RM2 → Settings.", 
+                        "Original ISO Not Found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
+                }
+
+                // Construct the build folder path and target ISO path
+                string buildFolderPath = Path.Combine(gameConfig.ProjectRootPath, "build");
+                string targetISOPath = Path.Combine(buildFolderPath, "RM2_translated.iso");
+
+                // Always delete existing ISO if it exists
+                if (File.Exists(targetISOPath))
+                {
+                    try
+                    {
+                        File.Delete(targetISOPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to delete existing ISO file: {ex.Message}", 
+                            "Delete Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return false;
+                    }
+                }
+
+                // Ensure build folder exists
+                if (!Directory.Exists(buildFolderPath))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(buildFolderPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to create build folder: {ex.Message}", 
+                            "Create Folder Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return false;
+                    }
+                }
+
+                // Copy the original ISO to the build folder with progress indication
+                try
+                {
+                    // Get file size for progress calculation
+                    long fileSize = new FileInfo(gameConfig.IsoPath).Length;
+                    
+                    // Show progress dialog
+                    var progressForm = new fRM2Progress("ISO Copy", "Creating fresh ISO copy...", config, true);
+                    progressForm.ShowCopyProgress(gameConfig.IsoPath, targetISOPath, fileSize);
+                    progressForm.ShowDialog();
+                    
+                    // Check if copy was successful
+                    if (File.Exists(targetISOPath))
+                    {
+                        return true; // Successfully created fresh copy
+                    }
+                    else
+                    {
+                        MessageBox.Show("ISO copy operation was cancelled or failed.", 
+                            "Copy Cancelled", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to copy ISO file: {ex.Message}", 
+                        "Copy Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error creating fresh ISO copy: {ex.Message}", 
+                    "ISO Copy Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+        }
+
+        private void ExecuteRM2Script(string scriptName, string operationName, bool skipConfirmation = false)
+        {
+            try
+            {
+                // Get the RM2 project folder path
+                var gameConfig = config.GetGameConfig("RM2");
+                if (gameConfig == null || string.IsNullOrEmpty(gameConfig.FolderPath))
+                {
+                    MessageBox.Show("Please configure the RM2 project folder path in RM2 → Settings first.", 
+                        "RM2 Project Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Get the ISO path
+                if (string.IsNullOrEmpty(gameConfig.IsoPath))
+                {
+                    MessageBox.Show("Please configure the RM2 ISO path in RM2 → Settings first.", 
+                        "RM2 ISO Path Not Set", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Construct the script path using project root
+                string scriptPath = Path.Combine(gameConfig.ProjectRootPath, "tools", scriptName);
+                if (!File.Exists(scriptPath))
+                {
+                    MessageBox.Show($"Script not found: {scriptPath}\n\nPlease ensure the RM2 project root folder contains the tools directory with {scriptName}", 
+                        "Script Not Found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                // Check if Python is available (try RM2-specific path first, then global)
+                string pythonPath = gameConfig.PythonPath;
+                if (string.IsNullOrEmpty(pythonPath) || !File.Exists(pythonPath))
+                {
+                    pythonPath = config.PythonLocation;
+                    if (string.IsNullOrEmpty(pythonPath) || !File.Exists(pythonPath))
+                    {
+                        MessageBox.Show("Python location not configured or Python executable not found.\n\nPlease configure Python in RM2 → Settings or in the main application settings.", 
+                            "Python Not Configured", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+
+                // Show confirmation dialog (unless skipped)
+                if (!skipConfirmation)
+                {
+                    var result = MessageBox.Show(
+                        $"This will execute {scriptName} to {operationName.ToLower()}.\n\n" +
+                        $"Script: {scriptPath}\n" +
+                        $"ISO: {gameConfig.IsoPath}\n\n" +
+                        "Do you want to continue?",
+                        $"Confirm {operationName}", 
+                        MessageBoxButtons.YesNo, 
+                        MessageBoxIcon.Question);
+
+                    if (result != DialogResult.Yes)
+                    {
+                        return; // User cancelled
+                    }
+                }
+
+                // Open the progress form to show real-time output
+                var progressForm = new fRM2Progress(scriptPath, operationName, config);
+                progressForm.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error executing {scriptName}: {ex.Message}", 
+                    "Script Execution Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 
