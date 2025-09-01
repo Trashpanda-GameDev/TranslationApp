@@ -161,7 +161,7 @@ namespace TranslationApp
             // chkAutoApplyEnabled
             // 
             this.chkAutoApplyEnabled.AutoSize = true;
-            this.chkAutoApplyEnabled.Location = new System.Drawing.Point(88, 115);
+            this.chkAutoApplyEnabled.Location = new System.Drawing.Point(88, 140);
             this.chkAutoApplyEnabled.Name = "chkAutoApplyEnabled";
             this.chkAutoApplyEnabled.Size = new System.Drawing.Size(200, 17);
             this.chkAutoApplyEnabled.TabIndex = 11;
@@ -170,7 +170,7 @@ namespace TranslationApp
             // 
             // btnSave
             // 
-            this.btnSave.Location = new System.Drawing.Point(600, 150);
+            this.btnSave.Location = new System.Drawing.Point(600, 175);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(75, 23);
             this.btnSave.TabIndex = 12;
@@ -181,7 +181,7 @@ namespace TranslationApp
             // 
             // btnCancel
             // 
-            this.btnCancel.Location = new System.Drawing.Point(682, 150);
+            this.btnCancel.Location = new System.Drawing.Point(682, 175);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(75, 23);
             this.btnCancel.TabIndex = 13;
@@ -194,7 +194,7 @@ namespace TranslationApp
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(779, 210);
+            this.ClientSize = new System.Drawing.Size(779, 235);
             this.Controls.Add(this.btnCancel);
             this.Controls.Add(this.btnSave);
             this.Controls.Add(this.btnDetectPython);
@@ -215,7 +215,7 @@ namespace TranslationApp
             this.Name = "fRM2Settings";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "RM2 Settings";
-            this.MinimumSize = new System.Drawing.Size(600, 225);
+            this.MinimumSize = new System.Drawing.Size(600, 250);
             this.ResumeLayout(false);
             this.PerformLayout();
         }
