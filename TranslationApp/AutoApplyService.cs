@@ -95,9 +95,9 @@ namespace TranslationApp
         /// <summary>
         /// Process XML files to create/update corresponding ARC files
         /// </summary>
-        private async Task<List<string>> ProcessXmlToArcAsync(List<string> xmlFiles)
+        private async Task<List<ArcRef>> ProcessXmlToArcAsync(List<string> xmlFiles)
         {
-            var processedArcFiles = new List<string>();
+            var processedArcs = new List<ArcRef>();
             var failedXmlFiles = new List<string>();
 
             Debug.WriteLine($"[AutoApply] Processing {xmlFiles.Count} XML files to ARC files");
@@ -106,33 +106,32 @@ namespace TranslationApp
             for (int i = 0; i < xmlFiles.Count; i++)
             {
                 var xmlFile = xmlFiles[i];
-                var arcName = GetArcNameFromXml(xmlFile);
-                
+                var arcRef = GetArcRefFromXml(xmlFile);
+
                 Debug.WriteLine($"[AutoApply] Processing XML file {i + 1}/{xmlFiles.Count}: {Path.GetFileName(xmlFile)}");
-                
-                if (string.IsNullOrEmpty(arcName))
+
+                if (arcRef == null)
                 {
-                    Debug.WriteLine($"[AutoApply] Could not determine ARC name for {xmlFile}, skipping");
+                    Debug.WriteLine($"[AutoApply] Could not determine ARC name/source for {xmlFile}, skipping");
                     continue;
                 }
 
-                Debug.WriteLine($"[AutoApply] Determined ARC name: {arcName}");
-                ReportProgress($"Creating ARC file: {arcName}", i + 1, xmlFiles.Count);
+                Debug.WriteLine($"[AutoApply] Determined ARC: {arcRef.Source}/{arcRef.ArcName}");
+                ReportProgress($"Creating ARC file: {arcRef.ArcName}", i + 1, xmlFiles.Count);
 
                 try
                 {
-                    Debug.WriteLine($"[AutoApply] Creating ARC file: {arcName}");
-                    var success = await CreateArcFileAsync(arcName);
+                    Debug.WriteLine($"[AutoApply] Creating ARC file: {arcRef.Source}/{arcRef.ArcName}");
+                    var success = await CreateArcFileAsync(arcRef.ArcName, arcRef.Source);
                     if (success)
                     {
-                        Debug.WriteLine($"[AutoApply] Successfully created ARC file: {arcName}");
-                        processedArcFiles.Add(arcName);
-                        // Mark XML as successfully processed
+                        Debug.WriteLine($"[AutoApply] Successfully created ARC file: {arcRef.Source}/{arcRef.ArcName}");
+                        processedArcs.Add(arcRef);
                         MarkXmlAsProcessed(xmlFile);
                     }
                     else
                     {
-                        Debug.WriteLine($"[AutoApply] Failed to create ARC file: {arcName}");
+                        Debug.WriteLine($"[AutoApply] Failed to create ARC file: {arcRef.Source}/{arcRef.ArcName}");
                         failedXmlFiles.Add(xmlFile);
                     }
                 }
@@ -143,38 +142,42 @@ namespace TranslationApp
                 }
             }
 
-            Debug.WriteLine($"[AutoApply] XML to ARC processing completed. Success: {processedArcFiles.Count}, Failed: {failedXmlFiles.Count}");
+            Debug.WriteLine($"[AutoApply] XML to ARC processing completed. Success: {processedArcs.Count}, Failed: {failedXmlFiles.Count}");
 
-            // Update failed files list for retry on next save
             if (failedXmlFiles.Count > 0)
             {
                 Debug.WriteLine($"[AutoApply] Adding {failedXmlFiles.Count} failed files to retry list");
                 UpdateFailedXmlFiles(failedXmlFiles);
             }
 
-            return processedArcFiles;
+            return processedArcs;
         }
 
         /// <summary>
-        /// Get ARC file name from XML file path
+        /// Identifies an ARC produced from an XML, including its source subfolder.
+        /// Source must match a --target accepted by rm2_apply.py (currently "facechat" or "npc").
         /// </summary>
-        private string GetArcNameFromXml(string xmlFilePath)
+        private class ArcRef
+        {
+            public string Source { get; set; }
+            public string ArcName { get; set; }
+        }
+
+        /// <summary>
+        /// Get ARC name + source folder from an XML file path.
+        /// </summary>
+        private ArcRef GetArcRefFromXml(string xmlFilePath)
         {
             try
             {
                 var fileName = Path.GetFileNameWithoutExtension(xmlFilePath);
-                var directory = Path.GetDirectoryName(xmlFilePath);
-                
-                // Determine if this is facechat or npc based on directory structure
+                var directory = Path.GetDirectoryName(xmlFilePath) ?? string.Empty;
+
                 if (directory.Contains("facechat"))
-                {
-                    return $"{fileName}.arc";
-                }
-                else if (directory.Contains("npc"))
-                {
-                    return $"{fileName}.arc";
-                }
-                
+                    return new ArcRef { Source = "facechat", ArcName = $"{fileName}.arc" };
+                if (directory.Contains("npc"))
+                    return new ArcRef { Source = "npc", ArcName = $"{fileName}.arc" };
+
                 return null;
             }
             catch
@@ -186,19 +189,19 @@ namespace TranslationApp
         /// <summary>
         /// Create ARC file using rm2_apply.py script
         /// </summary>
-        private async Task<bool> CreateArcFileAsync(string arcName)
+        private async Task<bool> CreateArcFileAsync(string arcName, string source)
         {
             try
             {
-                Debug.WriteLine($"[AutoApply] Starting rm2_apply.py for ARC: {arcName}");
+                Debug.WriteLine($"[AutoApply] Starting rm2_apply.py for ARC: {source}/{arcName}");
                 Debug.WriteLine($"[AutoApply] Python path: {_pythonPath}");
                 Debug.WriteLine($"[AutoApply] Script path: {_rm2ApplyScriptPath}");
                 Debug.WriteLine($"[AutoApply] Working directory: {_projectRootPath}");
-                
+
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = _pythonPath,
-                    Arguments = $"\"{_rm2ApplyScriptPath}\" --only {arcName}",
+                    Arguments = $"\"{_rm2ApplyScriptPath}\" --only {arcName} --target {source}",
                     WorkingDirectory = _projectRootPath,
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
@@ -253,7 +256,7 @@ namespace TranslationApp
         /// <summary>
         /// Update ISO with processed ARC files
         /// </summary>
-        private async Task UpdateIsoWithArcFilesAsync(List<string> arcFiles)
+        private async Task UpdateIsoWithArcFilesAsync(List<ArcRef> arcFiles)
         {
             if (arcFiles.Count == 0)
             {
@@ -266,68 +269,48 @@ namespace TranslationApp
 
             for (int i = 0; i < arcFiles.Count; i++)
             {
-                var arcFile = arcFiles[i];
-                Debug.WriteLine($"[AutoApply] Updating ISO with ARC file {i + 1}/{arcFiles.Count}: {arcFile}");
-                ReportProgress($"Updating ISO: {arcFile}", i + 1, arcFiles.Count);
+                var arcRef = arcFiles[i];
+                var label = $"{arcRef.Source}/{arcRef.ArcName}";
+                Debug.WriteLine($"[AutoApply] Updating ISO with ARC file {i + 1}/{arcFiles.Count}: {label}");
+                ReportProgress($"Updating ISO: {arcRef.ArcName}", i + 1, arcFiles.Count);
 
                 try
                 {
-                    var success = await ReplaceArcInIsoAsync(arcFile);
+                    var success = await ReplaceArcInIsoAsync(arcRef.ArcName, arcRef.Source);
                     if (success)
                     {
-                        Debug.WriteLine($"[AutoApply] Successfully updated ISO with ARC file: {arcFile}");
-                        // Mark ARC as successfully processed
-                        MarkArcAsProcessed(arcFile);
+                        Debug.WriteLine($"[AutoApply] Successfully updated ISO with ARC file: {label}");
+                        MarkArcAsProcessed(arcRef.ArcName);
                     }
                     else
                     {
-                        Debug.WriteLine($"[AutoApply] Failed to update ISO with ARC file: {arcFile}");
+                        Debug.WriteLine($"[AutoApply] Failed to update ISO with ARC file: {label}");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AutoApply] Exception while updating ISO with ARC file {arcFile}: {ex.Message}");
+                    Debug.WriteLine($"[AutoApply] Exception while updating ISO with ARC file {label}: {ex.Message}");
                 }
             }
-            
+
             Debug.WriteLine("[AutoApply] ISO update process completed");
         }
 
         /// <summary>
         /// Replace ARC file in ISO using replace-specific.py script
         /// </summary>
-        private async Task<bool> ReplaceArcInIsoAsync(string arcName)
+        private async Task<bool> ReplaceArcInIsoAsync(string arcName, string source)
         {
             try
             {
-                Debug.WriteLine($"[AutoApply] Starting replace-specific.py for ARC: {arcName}");
-                
-                // Determine the full path to the ARC file in 3_patched directory
-                string arcFilePath = null;
-                
-                // Check facechat directory first
-                var facechatPath = Path.Combine(_projectRootPath, "3_patched", "PSP_GAME", "USRDIR", "facechat", arcName);
-                Debug.WriteLine($"[AutoApply] Checking facechat path: {facechatPath}");
-                if (File.Exists(facechatPath))
-                {
-                    arcFilePath = facechatPath;
-                    Debug.WriteLine($"[AutoApply] Found ARC file in facechat directory");
-                }
-                else
-                {
-                    // Check npc directory
-                    var npcPath = Path.Combine(_projectRootPath, "3_patched", "PSP_GAME", "USRDIR", "npc", arcName);
-                    Debug.WriteLine($"[AutoApply] Checking npc path: {npcPath}");
-                    if (File.Exists(npcPath))
-                    {
-                        arcFilePath = npcPath;
-                        Debug.WriteLine($"[AutoApply] Found ARC file in npc directory");
-                    }
-                }
+                Debug.WriteLine($"[AutoApply] Starting replace-specific.py for ARC: {source}/{arcName}");
 
-                if (string.IsNullOrEmpty(arcFilePath))
+                var arcFilePath = Path.Combine(_projectRootPath, "3_patched", "PSP_GAME", "USRDIR", source, arcName);
+                Debug.WriteLine($"[AutoApply] ARC path: {arcFilePath}");
+
+                if (!File.Exists(arcFilePath))
                 {
-                    Debug.WriteLine($"[AutoApply] ARC file not found in either facechat or npc directory: {arcName}");
+                    Debug.WriteLine($"[AutoApply] ARC file not found at expected path: {arcFilePath}");
                     return false;
                 }
 
